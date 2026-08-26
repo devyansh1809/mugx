@@ -104,6 +104,11 @@ class DesignPanel(QWidget):
         for pt in ProductType:
             self.product_filter.addItem(pt.value, userData=pt)
         tmpl_layout.addWidget(self.product_filter, 0, 2)
+        tmpl_layout.addWidget(QLabel("Theme:"), 1, 1)
+        self.theme_filter = QComboBox()
+        for theme in TemplateTheme:
+            self.theme_filter.addItem(theme.value, userData=theme)
+        tmpl_layout.addWidget(self.theme_filter, 1, 2)
         layout.addWidget(tmpl_group)
 
         fill_group = QGroupBox("Auto Fill")
