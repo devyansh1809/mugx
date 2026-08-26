@@ -1,16 +1,18 @@
 """
 core/models.py
 
-Plain dataclasses shared across the app. No PyQt or Pillow imports here —
-this module stays framework-free so it can be tested in isolation.
+Framework-free data models shared across the SubliStudio core services.
+No PyQt imports here -- see architecture notes in README.md ("core/ has
+zero PyQt imports").
 """
+from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Optional
+from typing import Optional, Tuple, List, Dict, Any
 
 
-class ProductType(str, Enum):
+class ProductType(Enum):
     MUG = "Mug"
     BOTTLE = "Bottle"
     TSHIRT = "T-shirt"
@@ -22,35 +24,51 @@ class ProductType(str, Enum):
 
 @dataclass
 class PhotoItem:
-    """A single customer photo tracked by the app."""
     original_path: str
-    sequence_name: str = ""       # "01", "02", ... assigned on import
-    display_name: str = ""        # filename shown in the UI list
-    thumbnail_path: Optional[str] = None
+    sequence_name: str
+    index: int
+
+
+@dataclass
+class FrameInfo:
+    name: str
+    left: int
+    top: int
+    width: int
+    height: int
+    photo_index: Optional[int] = None
+
+    @property
+    def box(self) -> Tuple[int, int, int, int]:
+        return (self.left, self.top, self.left + self.width, self.top + self.height)
+
+    @property
+    def order_key(self) -> int:
+        digits = "".join(ch for ch in self.name.split("_")[-1] if ch.isdigit())
+        return int(digits) if digits else 0
 
 
 @dataclass
 class TemplateInfo:
-    """
-    Metadata about a loaded template file (PSD or PNG).
-    For this scaffold, frame slots are not yet parsed from the PSD —
-    that lands in PSDReaderService in a later milestone. For now this
-    just tracks what file was loaded and lets the preview render it.
-    """
-    file_path: str
+    source_path: str
+    display_name: str
+    width: int
+    height: int
+    is_psd: bool
     product_type: ProductType
-    display_name: str = ""
-    width: int = 0
-    height: int = 0
-    is_psd: bool = False
+    frames: List[FrameInfo] = field(default_factory=list)
+
+    @property
+    def frame_count(self) -> int:
+        return len(self.frames)
 
 
 @dataclass
 class DesignJob:
-    """
-    Represents one print job in progress: the chosen template plus the
-    photos assigned to it. Placeholder for the compositing step —
-    populated once CompositorService exists.
-    """
-    template: Optional[TemplateInfo] = None
-    photos: list[PhotoItem] = field(default_factory=list)
+    template: TemplateInfo
+    photos: List[PhotoItem] = field(default_factory=list)
+    background_path: Optional[str] = None
+    overlay_effect: Optional[str] = None
+    text_layers: List[Dict[str, Any]] = field(default_factory=list)
+    output_psd_path: Optional[str] = None
+    output_png_path: Optional[str] = None

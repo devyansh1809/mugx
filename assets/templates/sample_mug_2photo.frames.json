@@ -1,0 +1,16 @@
+[
+  {
+    "name": "frame_1",
+    "left": 40,
+    "top": 60,
+    "width": 300,
+    "height": 300
+  },
+  {
+    "name": "frame_2",
+    "left": 460,
+    "top": 60,
+    "width": 300,
+    "height": 300
+  }
+]

@@ -1,26 +1,26 @@
 """
 core/photo_import_service.py
 
-Handles turning a folder of customer photos into PhotoItem objects:
-- scans a folder for supported image files
-- assigns sequential names (01, 02, 03 ...) — display only in this milestone,
-  files on disk are NOT renamed yet (that's a deliberate choice: don't mutate
-  the customer's original folder until the operator confirms a job)
-- generates cached thumbnails for fast list-view rendering
+Scans a folder of customer photos, assigns in-memory sequential names
+(01, 02, 03...), and generates/cache plain (non-enhanced) thumbnails.
+No PyQt imports.
 """
+from __future__ import annotations
 
+import hashlib
 import logging
+import os
 from pathlib import Path
-from typing import Optional
+from typing import List, Optional
 
 from PIL import Image
 
 from core.models import PhotoItem
 
-logger = logging.getLogger("SubliStudio.PhotoImport")
+logger = logging.getLogger("SubliStudio.PhotoImportService")
 
-SUPPORTED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".bmp", ".tiff", ".tif", ".webp"}
-THUMBNAIL_SIZE = (128, 128)
+SUPPORTED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".tif", ".tiff", ".bmp", ".webp"}
+THUMB_SIZE = (96, 96)
 
 
 class PhotoImportService:
@@ -28,55 +28,43 @@ class PhotoImportService:
         self.thumbnail_cache_dir = Path(thumbnail_cache_dir)
         self.thumbnail_cache_dir.mkdir(parents=True, exist_ok=True)
 
-    def scan_folder(self, folder_path: str) -> list[PhotoItem]:
-        """
-        Scan a folder for supported images and return PhotoItem objects
-        with sequential display names assigned (01, 02, 03 ...).
-        Files are sorted by name before numbering so results are deterministic.
-        """
-        folder = Path(folder_path)
-        if not folder.is_dir():
-            logger.warning(f"Not a directory: {folder_path}")
+    def scan_folder(self, folder: str) -> List[PhotoItem]:
+        folder_path = Path(folder)
+        if not folder_path.is_dir():
+            logger.warning("scan_folder: %s is not a directory", folder)
             return []
 
-        files = sorted(
-            f for f in folder.iterdir()
-            if f.is_file() and f.suffix.lower() in SUPPORTED_EXTENSIONS
+        files_found = sorted(
+            p for p in folder_path.iterdir()
+            if p.is_file() and p.suffix.lower() in SUPPORTED_EXTENSIONS
         )
 
-        items: list[PhotoItem] = []
-        for i, f in enumerate(files, start=1):
-            seq = f"{i:02d}"
-            items.append(PhotoItem(
-                original_path=str(f),
-                sequence_name=seq,
-                display_name=f"{seq} — {f.name}",
-            ))
+        photos: List[PhotoItem] = []
+        for idx, path in enumerate(files_found, start=1):
+            photos.append(
+                PhotoItem(original_path=str(path), sequence_name=f"{idx:02d}", index=idx - 1)
+            )
+        logger.info("scan_folder: found %d photo(s) in %s", len(photos), folder)
+        return photos
 
-        logger.info(f"Scanned {folder_path}: {len(items)} photo(s) found.")
-        return items
+    def _cache_key(self, photo: PhotoItem) -> str:
+        try:
+            stat = os.stat(photo.original_path)
+            fingerprint = f"{photo.original_path}|{stat.st_mtime}|{stat.st_size}|{THUMB_SIZE}"
+        except OSError:
+            fingerprint = f"{photo.original_path}|{THUMB_SIZE}"
+        return hashlib.sha1(fingerprint.encode("utf-8")).hexdigest()
 
     def get_thumbnail(self, photo: PhotoItem) -> Optional[str]:
-        """
-        Generate (or reuse a cached) thumbnail for a photo.
-        Returns the thumbnail file path, or None if generation failed.
-        """
-        src = Path(photo.original_path)
-        if not src.exists():
-            logger.error(f"Source photo missing: {src}")
-            return None
-
-        thumb_path = self.thumbnail_cache_dir / f"thumb_{src.stem}_{abs(hash(str(src)))}.jpg"
-
-        if thumb_path.exists():
-            return str(thumb_path)
-
+        cache_path = self.thumbnail_cache_dir / f"{self._cache_key(photo)}.png"
+        if cache_path.exists():
+            return str(cache_path)
         try:
-            with Image.open(src) as img:
+            with Image.open(photo.original_path) as img:
                 img = img.convert("RGB")
-                img.thumbnail(THUMBNAIL_SIZE, Image.LANCZOS)
-                img.save(thumb_path, "JPEG", quality=85)
-            return str(thumb_path)
-        except Exception as e:
-            logger.error(f"Thumbnail generation failed for {src.name}: {e}")
+                img.thumbnail(THUMB_SIZE)
+                img.save(cache_path, "PNG")
+            return str(cache_path)
+        except Exception:
+            logger.exception("Failed to build thumbnail for %s", photo.original_path)
             return None

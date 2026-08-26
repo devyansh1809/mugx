@@ -1,19 +1,23 @@
 """
 ui/photo_list_widget.py
 
-A QListWidget subclass configured for icon-grid display of loaded photos.
-Kept as its own file/class so main_window.py doesn't get cluttered with
-widget-configuration details.
+Icon-grid list of loaded photos. Emits photo_double_clicked(index) for
+the swap-into-frame gesture.
 """
+from __future__ import annotations
+
+from typing import List, Dict
 
 from PyQt6.QtWidgets import QListWidget, QListWidgetItem
 from PyQt6.QtGui import QIcon, QPixmap
-from PyQt6.QtCore import QSize
+from PyQt6.QtCore import QSize, pyqtSignal
 
 from core.models import PhotoItem
 
 
 class PhotoListWidget(QListWidget):
+    photo_double_clicked = pyqtSignal(int)
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setViewMode(QListWidget.ViewMode.IconMode)
@@ -23,13 +27,11 @@ class PhotoListWidget(QListWidget):
         self.setSpacing(10)
         self.setWrapping(True)
         self.setUniformItemSizes(True)
+        self._photos: List[PhotoItem] = []
+        self.itemDoubleClicked.connect(self._on_item_double_clicked)
 
-    def set_photos(self, photos: list[PhotoItem], thumbnail_paths: dict[str, str]):
-        """
-        Populate the list. thumbnail_paths maps original_path -> thumbnail file path
-        (the caller — main_window — is responsible for generating thumbnails via
-        PhotoImportService; this widget only renders what it's given).
-        """
+    def set_photos(self, photos: List[PhotoItem], thumbnail_paths: Dict[str, str]):
+        self._photos = photos
         self.clear()
         for photo in photos:
             item = QListWidgetItem(photo.sequence_name)
@@ -40,3 +42,8 @@ class PhotoListWidget(QListWidget):
                     item.setIcon(QIcon(pixmap))
             item.setToolTip(photo.original_path)
             self.addItem(item)
+
+    def _on_item_double_clicked(self, item: QListWidgetItem):
+        row = self.row(item)
+        if 0 <= row < len(self._photos):
+            self.photo_double_clicked.emit(self._photos[row].index)
