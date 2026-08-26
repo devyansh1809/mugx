@@ -1,17 +1,16 @@
 """
-core/photo_import_service.py
+core/photo_import_service.py (v2)
 
-Scans a folder of customer photos, assigns in-memory sequential names
-(01, 02, 03...), and generates/cache plain (non-enhanced) thumbnails.
-No PyQt imports.
+Enhanced with last-used folder persistence and per-photo name overrides.
 """
 from __future__ import annotations
 
 import hashlib
 import logging
 import os
+import json
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Dict
 
 from PIL import Image
 
@@ -21,6 +20,7 @@ logger = logging.getLogger("SubliStudio.PhotoImportService")
 
 SUPPORTED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".tif", ".tiff", ".bmp", ".webp"}
 THUMB_SIZE = (96, 96)
+LAST_FOLDER_PATH = Path.home() / ".subli_studio" / "last_folder.json"
 
 
 class PhotoImportService:
@@ -28,7 +28,19 @@ class PhotoImportService:
         self.thumbnail_cache_dir = Path(thumbnail_cache_dir)
         self.thumbnail_cache_dir.mkdir(parents=True, exist_ok=True)
 
-    def scan_folder(self, folder: str) -> List[PhotoItem]:
+    def get_last_folder(self) -> Optional[str]:
+        if LAST_FOLDER_PATH.exists():
+            try:
+                return json.loads(LAST_FOLDER_PATH.read_text()).get("last_folder")
+            except:
+                pass
+        return None
+
+    def save_last_folder(self, folder: str):
+        LAST_FOLDER_PATH.parent.mkdir(parents=True, exist_ok=True)
+        LAST_FOLDER_PATH.write_text(json.dumps({"last_folder": folder}))
+
+    def scan_folder(self, folder: str, name_overrides: Optional[Dict[int, str]] = None) -> List[PhotoItem]:
         folder_path = Path(folder)
         if not folder_path.is_dir():
             logger.warning("scan_folder: %s is not a directory", folder)
@@ -41,9 +53,11 @@ class PhotoImportService:
 
         photos: List[PhotoItem] = []
         for idx, path in enumerate(files_found, start=1):
+            seq_name = name_overrides.get(idx-1, f"{idx:02d}") if name_overrides else f"{idx:02d}"
             photos.append(
-                PhotoItem(original_path=str(path), sequence_name=f"{idx:02d}", index=idx - 1)
+                PhotoItem(original_path=str(path), sequence_name=seq_name, index=idx - 1)
             )
+        
         logger.info("scan_folder: found %d photo(s) in %s", len(photos), folder)
         return photos
 

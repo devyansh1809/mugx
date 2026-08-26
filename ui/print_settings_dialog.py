@@ -1,7 +1,7 @@
 """
 ui/print_settings_dialog.py
 
-Dialog to configure PrintSettings before exporting ("Prepare for Print").
+Dialog to configure PrintSettings before exporting.
 """
 from __future__ import annotations
 
@@ -32,10 +32,6 @@ class PrintSettingsDialog(QDialog):
         self.dpi_spin.setValue(initial.dpi)
         layout.addRow("DPI:", self.dpi_spin)
 
-        self.mirror_checkbox = QCheckBox("Mirror horizontally (for sublimation)")
-        self.mirror_checkbox.setChecked(initial.mirror)
-        layout.addRow(self.mirror_checkbox)
-
         self.designs_per_sheet_spin = QSpinBox()
         self.designs_per_sheet_spin.setRange(1, 20)
         self.designs_per_sheet_spin.setValue(initial.designs_per_sheet)
@@ -56,7 +52,6 @@ class PrintSettingsDialog(QDialog):
         return PrintSettings(
             paper_size=self.paper_size_combo.currentText(),
             dpi=self.dpi_spin.value(),
-            mirror=self.mirror_checkbox.isChecked(),
             designs_per_sheet=self.designs_per_sheet_spin.value(),
             margin_mm=self.margin_spin.value(),
         )

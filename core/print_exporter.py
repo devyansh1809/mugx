@@ -1,8 +1,8 @@
 """
-core/print_exporter.py
+core/print_exporter.py (v2)
 
-"Prepare for Print": A4/A3 canvas, mirrored for sublimation, PNG/PDF export.
-No PyQt imports.
+Enhanced print export with Mirror 1/Mirror 2 manual toggle and
+Add Extra Design with 90-degree rotate option.
 """
 from __future__ import annotations
 
@@ -29,7 +29,7 @@ MM_PER_INCH = 25.4
 class PrintSettings:
     paper_size: str = "A4"
     dpi: int = 300
-    mirror: bool = True
+    mirror_default: bool = True
     designs_per_sheet: int = 1
     margin_mm: float = 5.0
 
@@ -66,43 +66,70 @@ class PrintExporter:
             positions.append((x, y))
         return positions
 
-    def build_print_sheet(self, design: Image.Image) -> Image.Image:
+    def build_print_sheet(self, design: Image.Image, mirror_1: bool = True, 
+                          mirror_2: bool = False, extra_design: Optional[Image.Image] = None,
+                          extra_design_rotate: bool = False) -> Image.Image:
         sheet_w, sheet_h = self._paper_size_px()
         sheet = Image.new("RGB", (sheet_w, sheet_h), (255, 255, 255))
 
         prepared = design.convert("RGB")
-        if self.settings.mirror:
+        if mirror_1:
+            prepared = prepared.transpose(Image.FLIP_LEFT_RIGHT)
+        if mirror_2:
             prepared = prepared.transpose(Image.FLIP_LEFT_RIGHT)
 
         max_w = sheet_w - 2 * round(self.settings.margin_mm * self.settings.dpi / MM_PER_INCH)
-        max_h = sheet_h
+        max_h = sheet_h * 0.7
         if prepared.width > max_w or prepared.height > max_h:
             ratio = min(max_w / prepared.width, max_h / prepared.height)
             prepared = prepared.resize(
                 (max(1, round(prepared.width * ratio)), max(1, round(prepared.height * ratio))), Image.LANCZOS
             )
 
-        positions = self._layout_positions((sheet_w, sheet_h), prepared.size)
-        if not positions:
-            positions = [(0, 0)]
-        for pos in positions:
-            sheet.paste(prepared, pos)
+        primary_x = round(self.settings.margin_mm * self.settings.dpi / MM_PER_INCH)
+        primary_y = primary_x
+        sheet.paste(prepared, (primary_x, primary_y))
 
-        logger.info("Built print sheet %sx%s px (%s @ %s DPI), %d copies, mirror=%s",
-                    sheet_w, sheet_h, self.settings.paper_size, self.settings.dpi, len(positions), self.settings.mirror)
+        if extra_design is not None:
+            extra = extra_design.convert("RGB")
+            if extra_design_rotate:
+                extra = extra.transpose(Image.ROTATE_270)
+            
+            if mirror_1:
+                extra = extra.transpose(Image.FLIP_LEFT_RIGHT)
+            
+            extra_max_w = sheet_w - 2 * primary_x
+            extra_max_h = sheet_h * 0.25
+            if extra.width > extra_max_w or extra.height > extra_max_h:
+                ratio = min(extra_max_w / extra.width, extra_max_h / extra.height)
+                extra = extra.resize(
+                    (max(1, round(extra.width * ratio)), max(1, round(extra.height * ratio))), Image.LANCZOS
+                )
+            
+            extra_x = primary_x
+            extra_y = sheet_h - extra.height - primary_x
+            sheet.paste(extra, (extra_x, extra_y))
+
+        logger.info("Built print sheet %sx%s px (%s @ %s DPI), mirror1=%s, mirror2=%s, extra=%s",
+                    sheet_w, sheet_h, self.settings.paper_size, self.settings.dpi, 
+                    mirror_1, mirror_2, extra_design is not None)
         return sheet
 
-    def export_png(self, design: Image.Image, output_path: str) -> str:
-        sheet = self.build_print_sheet(design)
+    def export_png(self, design: Image.Image, output_path: str, mirror_1: bool = True,
+                   mirror_2: bool = False, extra_design: Optional[Image.Image] = None,
+                   extra_design_rotate: bool = False) -> str:
+        sheet = self.build_print_sheet(design, mirror_1, mirror_2, extra_design, extra_design_rotate)
         Path(output_path).parent.mkdir(parents=True, exist_ok=True)
         sheet.save(output_path, "PNG", dpi=(self.settings.dpi, self.settings.dpi))
         return output_path
 
-    def export_pdf(self, design: Image.Image, output_path: str) -> str:
+    def export_pdf(self, design: Image.Image, output_path: str, mirror_1: bool = True,
+                   mirror_2: bool = False, extra_design: Optional[Image.Image] = None,
+                   extra_design_rotate: bool = False) -> str:
         from reportlab.lib.utils import ImageReader
         from reportlab.pdfgen import canvas as pdf_canvas
 
-        sheet = self.build_print_sheet(design)
+        sheet = self.build_print_sheet(design, mirror_1, mirror_2, extra_design, extra_design_rotate)
         Path(output_path).parent.mkdir(parents=True, exist_ok=True)
 
         w_mm, h_mm = PAPER_SIZES_MM[self.settings.paper_size]
@@ -115,13 +142,17 @@ class PrintExporter:
         c.save()
         return output_path
 
-    def export(self, design: Image.Image, output_dir: str, base_name: str,
+    def export(self, design: Image.Image, output_dir: str, base_name: str, mirror_1: bool = True,
+               mirror_2: bool = False, extra_design: Optional[Image.Image] = None,
+               extra_design_rotate: bool = False,
                formats: Tuple[str, ...] = ("png",)) -> List[str]:
         outputs = []
         out_dir = Path(output_dir)
         out_dir.mkdir(parents=True, exist_ok=True)
         if "png" in formats:
-            outputs.append(self.export_png(design, str(out_dir / f"{base_name}.png")))
+            outputs.append(self.export_png(design, str(out_dir / f"{base_name}.png"), 
+                                          mirror_1, mirror_2, extra_design, extra_design_rotate))
         if "pdf" in formats:
-            outputs.append(self.export_pdf(design, str(out_dir / f"{base_name}.pdf")))
+            outputs.append(self.export_pdf(design, str(out_dir / f"{base_name}.pdf"),
+                                          mirror_1, mirror_2, extra_design, extra_design_rotate))
         return outputs

@@ -1,7 +1,7 @@
 """
 ui/text_tool_dialog.py
 
-Simple text tool: text, font size, color, and position (0-1 canvas ratio).
+Simple text tool: text, font size, color, and position.
 """
 from __future__ import annotations
 

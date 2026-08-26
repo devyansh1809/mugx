@@ -1,8 +1,7 @@
 """
 ui/photo_list_widget.py
 
-Icon-grid list of loaded photos. Emits photo_double_clicked(index) for
-the swap-into-frame gesture.
+Icon-grid list of loaded photos.
 """
 from __future__ import annotations
 

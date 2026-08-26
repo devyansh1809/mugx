@@ -1,16 +1,7 @@
 """
-core/image_processor.py
+core/image_processor.py (v2)
 
-`enhance_image()` -- the "Auto Enhance" pipeline -- plus
-`ImageEnhancementService`, a two-tier (in-memory + disk) cache wrapper.
-
-Algorithm:
-  1. Edge-preserving smoothing (cv2.bilateralFilter, d=9, sigma=60)
-  2. Adaptive local contrast (CLAHE on L channel in LAB, clipLimit=1.0, 16x16 tiles)
-  3. Saturation boost (~12%) in HSV space
-  4. Mild unsharp mask (weight 1.15 / -0.15)
-
-Falls back to a Pillow-only pipeline if OpenCV isn't installed.
+Auto-enhance pipeline (unchanged from v1).
 """
 from __future__ import annotations
 
@@ -39,23 +30,18 @@ THUMB_SIZE = (96, 96)
 def _enhance_with_cv2(image: Image.Image) -> Image.Image:
     rgb = np.array(image.convert("RGB"))
     bgr = cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)
-
     smoothed = cv2.bilateralFilter(bgr, d=9, sigmaColor=60, sigmaSpace=60)
-
     lab = cv2.cvtColor(smoothed, cv2.COLOR_BGR2LAB)
     l_channel, a_channel, b_channel = cv2.split(lab)
     clahe = cv2.createCLAHE(clipLimit=1.0, tileGridSize=(16, 16))
     l_channel = clahe.apply(l_channel)
     lab = cv2.merge((l_channel, a_channel, b_channel))
     contrasted = cv2.cvtColor(lab, cv2.COLOR_LAB2BGR)
-
     hsv = cv2.cvtColor(contrasted, cv2.COLOR_BGR2HSV).astype(np.float32)
     hsv[:, :, 1] = np.clip(hsv[:, :, 1] * 1.12, 0, 255)
     saturated = cv2.cvtColor(hsv.astype(np.uint8), cv2.COLOR_HSV2BGR)
-
     blurred = cv2.GaussianBlur(saturated, (0, 0), sigmaX=2)
     sharpened = cv2.addWeighted(saturated, 1.15, blurred, -0.15, 0)
-
     result_rgb = cv2.cvtColor(sharpened, cv2.COLOR_BGR2RGB)
     return Image.fromarray(result_rgb)
 

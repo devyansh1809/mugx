@@ -1,14 +1,14 @@
 """
-core/mockup_generator.py
+core/mockup_generator.py (v2)
 
-3D-ish product mockup preview proof-of-concept. No PyQt imports.
+3D mockup with multiple angle variants + JPG export for WhatsApp.
 """
 from __future__ import annotations
 
 import logging
 import math
 from pathlib import Path
-from typing import Optional
+from typing import Optional, List
 
 import numpy as np
 from PIL import Image
@@ -16,14 +16,38 @@ from PIL import Image
 logger = logging.getLogger("SubliStudio.MockupGenerator")
 
 
+class MockupVariant:
+    def __init__(self, name: str, angle_degrees: int = 0):
+        self.name = name
+        self.angle_degrees = angle_degrees
+
+
 class MockupGenerator:
     def __init__(self, cache_dir: Optional[str] = None):
         self.cache_dir = Path(cache_dir) if cache_dir else None
         if self.cache_dir:
             self.cache_dir.mkdir(parents=True, exist_ok=True)
+        
+        self.mug_variants = [
+            MockupVariant("Front View", 0),
+            MockupVariant("3/4 Angle Left", -30),
+            MockupVariant("3/4 Angle Right", 30),
+            MockupVariant("Side View", 90),
+        ]
+
+    def get_variants(self, product_type: str) -> List[MockupVariant]:
+        if product_type.lower() == "mug":
+            return self.mug_variants
+        return [MockupVariant("Default", 0)]
 
     def render_cylinder_mockup(self, design: Image.Image, canvas_size: tuple[int, int] = (800, 800),
-                                wrap_width_ratio: float = 0.55, wrap_height_ratio: float = 0.55) -> Image.Image:
+                                wrap_width_ratio: float = 0.55, wrap_height_ratio: float = 0.55,
+                                variant: Optional[MockupVariant] = None) -> Image.Image:
+        angle = variant.angle_degrees if variant else 0
+        
+        if angle != 0:
+            design = design.rotate(angle, expand=False, resample=Image.BICUBIC)
+        
         canvas_w, canvas_h = canvas_size
         canvas = Image.new("RGB", (canvas_w, canvas_h), (235, 235, 235))
 
@@ -49,29 +73,9 @@ class MockupGenerator:
         canvas.paste(warped, offset, mask)
         return canvas
 
-    def render_smart_object_mockup(self, mockup_psd_path: str, design: Image.Image) -> Image.Image:
-        from psd_tools import PSDImage
-
-        psd = PSDImage.open(mockup_psd_path)
-        smart_object_layer = None
-
-        def _walk(layers):
-            nonlocal smart_object_layer
-            for layer in layers:
-                if getattr(layer, "is_group", False):
-                    _walk(layer)
-                    continue
-                if getattr(layer, "kind", "") == "smartobject":
-                    smart_object_layer = layer
-                    return
-
-        _walk(psd)
-        if smart_object_layer is None:
-            raise NotImplementedError(
-                "No Smart Object layer found in mockup PSD -- use render_cylinder_mockup() as a fallback."
-            )
-
-        raise NotImplementedError(
-            "Smart Object pixel replacement is not supported by the installed psd-tools write API "
-            "for this mockup file. Use render_cylinder_mockup() for now."
-        )
+    def export_mockup_jpg(self, mockup: Image.Image, output_path: str, quality: int = 85) -> str:
+        Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+        max_size = (1280, 1280)
+        mockup.thumbnail(max_size, Image.LANCZOS)
+        mockup.convert("RGB").save(output_path, "JPEG", quality=quality, optimize=True)
+        return output_path

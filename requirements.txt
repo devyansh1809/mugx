@@ -4,3 +4,4 @@ opencv-python-headless>=4.9
 psd-tools>=1.9
 numpy>=1.26
 reportlab>=4.0
+qrcode[pil]>=7.4

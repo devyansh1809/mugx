@@ -1,5 +1,5 @@
 """
-main.py -- SubliStudio entry point.
+main.py -- SubliStudio v2 entry point.
 
 Run with:
     python main.py
@@ -32,7 +32,7 @@ def setup_logging():
 def main():
     setup_logging()
     logger = logging.getLogger("SubliStudio.Main")
-    logger.info("Starting SubliStudio...")
+    logger.info("Starting SubliStudio v2...")
 
     app = QApplication(sys.argv)
     app.setApplicationName("SubliStudio")
