@@ -1,0 +1,14 @@
+# SubliStudio — dependencies
+# Install with: pip install -r requirements.txt
+
+PyQt6>=6.6.0
+Pillow>=10.3.0
+psd-tools>=1.9.0
+numpy>=1.26.0
+
+# IMPORTANT: use opencv-python-headless, NOT opencv-python.
+# Regular opencv-python bundles its own Qt platform plugins, which can
+# conflict with PyQt6's on macOS (crashes or "could not find the Qt
+# platform plugin" errors on launch). Headless has no GUI code of its
+# own, which is all we need since PyQt6 already handles display.
+opencv-python-headless>=4.9.0
