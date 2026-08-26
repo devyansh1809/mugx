@@ -1,617 +1,479 @@
-"""
-ui/main_window.py (v2.2)
-
-Fix: a single SessionState object is created once in MainWindow and
-passed into every panel. All panels read/write the SAME
-loaded_photos / current_template / base_canvas / design_canvas. Every
-button now has a real .clicked.connect(). All three dialogs are now
-actually instantiated and used. Manual text goes through
-TextToolDialog, which has a real QLineEdit.
-"""
+"""SubliStudio v2.3: selectable photos, live edit and print previews."""
 from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Optional, List
+from typing import List, Optional
 
-from PIL import Image
-
-from PyQt6.QtWidgets import (
-    QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QPushButton,
-    QComboBox, QLabel, QFileDialog, QMessageBox, QCheckBox, QSpinBox,
-    QTabWidget, QDoubleSpinBox, QGroupBox, QLineEdit,
-)
+from PIL import Image, ImageDraw, ImageFilter
 from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtWidgets import (
+    QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QSplitter,
+    QPushButton, QComboBox, QLabel, QFileDialog, QMessageBox, QCheckBox,
+    QSpinBox, QDoubleSpinBox, QTabWidget, QGroupBox, QLineEdit, QSlider,
+)
 
 from core.models import ProductType, PhotoItem, TemplateInfo, TemplateTheme, DesignJob
 from core.photo_import_service import PhotoImportService
 from core.template_manager import TemplateManager
 from core.image_processor import ImageEnhancementService
-from core.print_exporter import PrintExporter, PrintSettings
+from core.print_exporter import PrintExporter
 from core.mockup_generator import MockupGenerator
-
 from ui.template_preview_widget import TemplatePreviewWidget
-from ui.print_settings_dialog import PrintSettingsDialog
+from ui.photo_selection_dialog import PhotoSelectionDialog
+from ui.live_canvas_preview import LiveCanvasPreview
 from ui.text_tool_dialog import TextToolDialog
+from ui.print_settings_dialog import PrintSettingsDialog
 from ui.mockup_preview_dialog import MockupPreviewDialog
 
 logger = logging.getLogger("SubliStudio.MainWindow")
-
 APP_DATA_DIR = Path.home() / ".subli_studio"
 THUMB_CACHE_DIR = APP_DATA_DIR / "thumbnails"
+ENHANCE_CACHE_DIR = APP_DATA_DIR / "enhanced_thumbnails"
 PREVIEW_CACHE_DIR = APP_DATA_DIR / "template_previews"
 MOCKUP_CACHE_DIR = APP_DATA_DIR / "mockups"
 AUTO_SAVE_DIR = APP_DATA_DIR / "manual_psd"
-BUILTIN_EFFECTS_DIR = Path(__file__).resolve().parent.parent / "assets" / "effects"
 
 
 class SessionState:
+    """One shared design state for every tab."""
     def __init__(self):
         self.photo_service = PhotoImportService(str(THUMB_CACHE_DIR))
         self.template_manager = TemplateManager(str(PREVIEW_CACHE_DIR))
-        self.image_enhancement_service = ImageEnhancementService(str(THUMB_CACHE_DIR))
+        self.enhancement_service = ImageEnhancementService(str(ENHANCE_CACHE_DIR))
         self.print_exporter = PrintExporter()
         self.mockup_generator = MockupGenerator(str(MOCKUP_CACHE_DIR))
-        self.loaded_photos: List[PhotoItem] = []
-        self.current_template: Optional[TemplateInfo] = None
+        self.photos: List[PhotoItem] = []
+        self.template: Optional[TemplateInfo] = None
         self.base_canvas: Optional[Image.Image] = None
-        self.design_canvas: Optional[Image.Image] = None
-        self._pending_bg_path: Optional[str] = None
+        self.canvas: Optional[Image.Image] = None
+        self.selected_frame = 0
+        self.extra_design_path: Optional[str] = None
 
-    def working_canvas(self) -> Optional[Image.Image]:
-        return self.design_canvas if self.design_canvas is not None else self.base_canvas
+    def current_canvas(self) -> Optional[Image.Image]:
+        return self.canvas if self.canvas is not None else self.base_canvas
 
-    def auto_save(self):
-        if not self.current_template:
+    def save(self):
+        if not self.template:
             return
-        job = DesignJob(template=self.current_template, photos=self.loaded_photos)
         try:
-            job.auto_save(str(AUTO_SAVE_DIR))
+            DesignJob(template=self.template, photos=self.photos).auto_save(str(AUTO_SAVE_DIR))
         except Exception:
-            logger.exception("Auto-save failed")
+            logger.exception("Autosave failed")
 
 
 class DesignPanel(QWidget):
-    templateLoaded = pyqtSignal()
+    changed = pyqtSignal()
+    template_loaded = pyqtSignal()
 
-    def __init__(self, session: SessionState, on_change, parent=None):
+    def __init__(self, state: SessionState, parent=None):
         super().__init__(parent)
-        self.session = session
-        self.on_change = on_change
-        self._init_ui()
+        self.state = state
+        self._build()
 
-    def _init_ui(self):
-        layout = QVBoxLayout(self)
-        photo_group = QGroupBox("Photos")
+    def _build(self):
+        root = QVBoxLayout(self)
+        root.setContentsMargins(16, 12, 16, 12)
+        root.setSpacing(10)
+
+        photo_group = QGroupBox("1. Choose Customer Photos")
         photo_layout = QHBoxLayout(photo_group)
-        self.load_photos_btn = QPushButton("\U0001F4C1 Load Photos")
-        self.load_photos_btn.clicked.connect(self._on_load_photos)
-        photo_layout.addWidget(self.load_photos_btn)
-        self.auto_enhance_checkbox = QCheckBox("\u2728 Auto Enhance")
-        photo_layout.addWidget(self.auto_enhance_checkbox)
-        photo_layout.addStretch()
-        self.photo_count_label = QLabel("0 photos loaded")
-        photo_layout.addWidget(self.photo_count_label)
-        layout.addWidget(photo_group)
+        self.folder_btn = QPushButton("Load Folder and Choose Photos")
+        self.folder_btn.clicked.connect(self.load_folder)
+        photo_layout.addWidget(self.folder_btn)
+        self.files_btn = QPushButton("Select Individual Files")
+        self.files_btn.clicked.connect(self.select_files)
+        photo_layout.addWidget(self.files_btn)
+        self.auto_enhance = QCheckBox("Auto Enhance")
+        self.auto_enhance.setChecked(True)
+        photo_layout.addWidget(self.auto_enhance)
+        photo_layout.addStretch(1)
+        self.photo_status = QLabel("No photos selected")
+        photo_layout.addWidget(self.photo_status)
+        root.addWidget(photo_group)
 
-        tmpl_group = QGroupBox("Template")
-        tmpl_layout = QGridLayout(tmpl_group)
-        self.load_template_btn = QPushButton("\U0001F5BC Load Template")
-        self.load_template_btn.clicked.connect(self._on_load_template)
-        tmpl_layout.addWidget(self.load_template_btn, 0, 0)
-        tmpl_layout.addWidget(QLabel("Product:"), 0, 1)
-        self.product_filter = QComboBox()
-        for pt in ProductType:
-            self.product_filter.addItem(pt.value, userData=pt)
-        tmpl_layout.addWidget(self.product_filter, 0, 2)
-        tmpl_layout.addWidget(QLabel("Theme:"), 1, 1)
-        self.theme_filter = QComboBox()
-        for theme in TemplateTheme:
-            self.theme_filter.addItem(theme.value, userData=theme)
-        tmpl_layout.addWidget(self.theme_filter, 1, 2)
-        layout.addWidget(tmpl_group)
+        template_group = QGroupBox("2. Load Template")
+        template_layout = QGridLayout(template_group)
+        self.template_btn = QPushButton("Load Template")
+        self.template_btn.clicked.connect(self.load_template)
+        template_layout.addWidget(self.template_btn, 0, 0)
+        template_layout.addWidget(QLabel("Product:"), 0, 1)
+        self.product = QComboBox()
+        for item in ProductType:
+            self.product.addItem(item.value, item)
+        template_layout.addWidget(self.product, 0, 2)
+        template_layout.addWidget(QLabel("Theme:"), 1, 1)
+        self.theme = QComboBox()
+        for item in TemplateTheme:
+            self.theme.addItem(item.value, item)
+        template_layout.addWidget(self.theme, 1, 2)
+        root.addWidget(template_group)
 
-        fill_group = QGroupBox("Auto Fill")
+        fill_group = QGroupBox("3. Auto Fill")
         fill_layout = QHBoxLayout(fill_group)
-        fill_layout.addWidget(QLabel("Use photos:"))
-        self.photo_count_spin = QSpinBox()
-        self.photo_count_spin.setRange(1, 1)
-        fill_layout.addWidget(self.photo_count_spin)
-        self.auto_fill_btn = QPushButton("\U0001F9E9 Auto Fill")
-        self.auto_fill_btn.clicked.connect(self._on_auto_fill)
-        self.auto_fill_btn.setEnabled(False)
-        fill_layout.addWidget(self.auto_fill_btn)
-        layout.addWidget(fill_group)
+        fill_layout.addWidget(QLabel("Use selected photos:"))
+        self.count = QSpinBox()
+        self.count.setMinimum(1)
+        self.count.setMaximum(1)
+        fill_layout.addWidget(self.count)
+        self.fill_btn = QPushButton("Auto Fill Selected Photos")
+        self.fill_btn.clicked.connect(self.auto_fill)
+        self.fill_btn.setEnabled(False)
+        fill_layout.addWidget(self.fill_btn)
+        fill_layout.addStretch(1)
+        root.addWidget(fill_group)
 
-        self.preview = TemplatePreviewWidget()
-        self.preview.setMinimumHeight(300)
-        layout.addWidget(self.preview, stretch=1)
-        self.status_label = QLabel("Ready.")
-        layout.addWidget(self.status_label)
+        self.preview = LiveCanvasPreview("Load photos and a template to begin")
+        root.addWidget(self.preview, 1)
+        self.status = QLabel("Ready.")
+        root.addWidget(self.status)
 
-    def _on_load_photos(self):
-        last_folder = self.session.photo_service.get_last_folder()
-        folder = QFileDialog.getExistingDirectory(self, "Select Customer Photos Folder", last_folder or "")
+    def _choose_photos(self, candidates: List[PhotoItem]):
+        dialog = PhotoSelectionDialog(candidates, self.state.photo_service, self)
+        if dialog.exec():
+            self.state.photos = dialog.selected_photos()
+            self.photo_status.setText(f"{len(self.state.photos)} selected photo(s)")
+            self.count.setMaximum(max(1, len(self.state.photos)))
+            self.count.setValue(min(self.count.maximum(), max(1, len(self.state.photos))))
+            self._update_fill_enabled()
+            self.status.setText("Photo selection updated. Load a template or Auto Fill.")
+
+    def load_folder(self):
+        folder = QFileDialog.getExistingDirectory(self, "Choose Photo Folder", self.state.photo_service.get_last_folder() or "")
         if not folder:
             return
-        self.session.photo_service.save_last_folder(folder)
-        photos = self.session.photo_service.scan_folder(folder)
-        if not photos:
-            QMessageBox.warning(self, "No Photos Found", f"No supported images in:\n{folder}")
+        self.state.photo_service.save_last_folder(folder)
+        candidates = self.state.photo_service.scan_folder(folder)
+        if not candidates:
+            QMessageBox.warning(self, "No Photos", "No supported images were found in that folder.")
             return
-        self.session.loaded_photos = photos
-        self.photo_count_label.setText(f"{len(photos)} photos")
-        self._update_auto_fill_enabled()
-        self.on_change()
+        self._choose_photos(candidates)
 
-    def _on_load_template(self):
-        file_path, _ = QFileDialog.getOpenFileName(
-            self, "Select Product Template", "",
-            "Templates (*.psd *.psb *.png *.jpg *.jpeg *.tiff);;All Files (*)",
+    def select_files(self):
+        paths, _ = QFileDialog.getOpenFileNames(
+            self, "Select Customer Photos", "",
+            "Images (*.jpg *.jpeg *.png *.webp *.bmp *.tif *.tiff *.gif *.heic *.heif)",
         )
-        if not file_path:
+        if not paths:
             return
-        product_type = self.product_filter.currentData() or ProductType.MUG
-        theme = self.theme_filter.currentData() or TemplateTheme.PLAIN
-        info, preview_path = self.session.template_manager.load_template(file_path, product_type, theme)
+        candidates = [PhotoItem(original_path=p, sequence_name=f"{i+1:02d}", index=i) for i, p in enumerate(paths)]
+        self._choose_photos(candidates)
+
+    def load_template(self):
+        path, _ = QFileDialog.getOpenFileName(self, "Select Product Template", "", "Templates (*.psd *.psb *.png *.jpg *.jpeg *.tiff)")
+        if not path:
+            return
+        info, preview_path = self.state.template_manager.load_template(path, self.product.currentData(), self.theme.currentData())
         if not info or not preview_path:
-            QMessageBox.critical(self, "Template Load Failed", f"Could not load:\n{file_path}")
+            QMessageBox.critical(self, "Template Load Failed", "Could not load this template.")
             return
-        self.session.current_template = info
-        self.session.base_canvas = Image.open(preview_path).convert("RGBA")
-        self.session.design_canvas = None
-        self.preview.set_preview(preview_path, frames=info.frames, source_size=(info.width, info.height))
-        self._update_auto_fill_enabled()
-        self.templateLoaded.emit()
-        self.on_change()
+        self.state.template = info
+        self.state.base_canvas = Image.open(preview_path).convert("RGBA")
+        self.state.canvas = None
+        self.state.selected_frame = 0
+        self.refresh()
+        self.template_loaded.emit()
+        self._update_fill_enabled()
+        self.status.setText(f"Loaded {info.display_name} with {info.frame_count} frame(s).")
 
-    def _update_auto_fill_enabled(self):
-        can_fill = bool(self.session.loaded_photos) and self.session.current_template is not None
-        self.auto_fill_btn.setEnabled(can_fill)
-        if can_fill:
-            max_photos = min(len(self.session.loaded_photos), self.session.current_template.frame_count)
-            self.photo_count_spin.setRange(1, max(1, max_photos))
-            self.photo_count_spin.setValue(max_photos)
+    def _update_fill_enabled(self):
+        self.fill_btn.setEnabled(bool(self.state.photos and self.state.template and self.state.base_canvas))
 
-    def _on_auto_fill(self):
-        s = self.session
-        if not s.current_template or not s.loaded_photos or s.base_canvas is None:
+    def auto_fill(self):
+        if not self.state.template or not self.state.base_canvas:
             return
-        n = self.photo_count_spin.value()
-        photos_to_use = s.loaded_photos[:n]
         try:
-            s.design_canvas = s.template_manager.fill_frames(s.current_template, s.base_canvas, photos_to_use)
-        except ValueError as exc:
-            QMessageBox.warning(self, "Auto Fill Failed", str(exc))
-            return
-        s.auto_save()
-        self.on_change()
+            self.state.canvas = self.state.template_manager.fill_frames(
+                self.state.template, self.state.base_canvas, self.state.photos[:self.count.value()]
+            )
+            self.state.save()
+            self.refresh()
+            self.changed.emit()
+            self.status.setText("Auto Fill complete. Open Manual Edit to refine the design.")
+        except Exception as exc:
+            QMessageBox.critical(self, "Auto Fill Failed", str(exc))
 
-    def refresh_preview(self):
-        s = self.session
-        canvas = s.working_canvas()
-        if canvas is None or s.current_template is None:
-            self.preview.show_empty_state()
-            return
-        tmp_path = str(PREVIEW_CACHE_DIR / "_live_preview.png")
-        Path(PREVIEW_CACHE_DIR).mkdir(parents=True, exist_ok=True)
-        canvas.convert("RGB").save(tmp_path, "PNG")
-        self.preview.set_preview(tmp_path, frames=s.current_template.frames,
-                                  source_size=(s.current_template.width, s.current_template.height))
+    def refresh(self):
+        self.preview.set_canvas(self.state.current_canvas(), self.state.template.frames if self.state.template else [], self.state.selected_frame)
 
 
 class ManualEditPanel(QWidget):
-    def __init__(self, session: SessionState, on_change, parent=None):
+    changed = pyqtSignal()
+
+    EFFECTS = ["None", "Soft Glow", "Warm Light", "Cool Light", "Spotlight", "Vignette", "Gold Border", "White Border", "Drop Shadow"]
+
+    def __init__(self, state: SessionState, parent=None):
         super().__init__(parent)
-        self.session = session
-        self.on_change = on_change
-        self._init_ui()
+        self.state = state
+        self._preview_canvas: Optional[Image.Image] = None
+        self._build()
 
-    def _init_ui(self):
-        layout = QVBoxLayout(self)
-        resize_group = QGroupBox("Resize Photo in Frame")
-        resize_layout = QGridLayout(resize_group)
-        resize_layout.addWidget(QLabel("Frame #:"), 0, 0)
-        self.resize_frame_spin = QSpinBox()
-        self.resize_frame_spin.setRange(1, 1)
-        resize_layout.addWidget(self.resize_frame_spin, 0, 1)
-        resize_layout.addWidget(QLabel("Scale:"), 0, 2)
-        self.resize_scale_spin = QDoubleSpinBox()
-        self.resize_scale_spin.setRange(0.5, 2.0)
-        self.resize_scale_spin.setValue(1.0)
-        resize_layout.addWidget(self.resize_scale_spin, 0, 3)
-        self.apply_resize_btn = QPushButton("Apply Resize")
-        self.apply_resize_btn.clicked.connect(self._on_apply_resize)
-        resize_layout.addWidget(self.apply_resize_btn, 2, 0, 1, 4)
-        layout.addWidget(resize_group)
+    def _build(self):
+        splitter = QSplitter(Qt.Orientation.Horizontal)
+        controls = QWidget()
+        left = QVBoxLayout(controls)
+        left.setContentsMargins(16, 12, 12, 12)
 
-        swap_group = QGroupBox("Swap Photos")
+        frame_group = QGroupBox("Frame Edit")
+        frame_layout = QGridLayout(frame_group)
+        frame_layout.addWidget(QLabel("Frame:"), 0, 0)
+        self.frame = QSpinBox(); self.frame.setRange(1, 1)
+        self.frame.valueChanged.connect(self.select_frame)
+        frame_layout.addWidget(self.frame, 0, 1)
+        frame_layout.addWidget(QLabel("Scale:"), 1, 0)
+        self.scale = QDoubleSpinBox(); self.scale.setRange(0.5, 2.5); self.scale.setValue(1.0); self.scale.setSingleStep(0.05)
+        self.scale.valueChanged.connect(self.preview_resize)
+        frame_layout.addWidget(self.scale, 1, 1)
+        frame_layout.addWidget(QLabel("Offset X:"), 2, 0)
+        self.x = QSpinBox(); self.x.setRange(-500, 500); self.x.valueChanged.connect(self.preview_resize)
+        frame_layout.addWidget(self.x, 2, 1)
+        frame_layout.addWidget(QLabel("Offset Y:"), 3, 0)
+        self.y = QSpinBox(); self.y.setRange(-500, 500); self.y.valueChanged.connect(self.preview_resize)
+        frame_layout.addWidget(self.y, 3, 1)
+        self.apply_resize = QPushButton("Apply Frame Edit")
+        self.apply_resize.clicked.connect(self.commit_resize)
+        frame_layout.addWidget(self.apply_resize, 4, 0, 1, 2)
+        left.addWidget(frame_group)
+
+        swap_group = QGroupBox("Swap Two Photos")
         swap_layout = QHBoxLayout(swap_group)
-        swap_layout.addWidget(QLabel("Frame 1:"))
-        self.swap_frame1 = QSpinBox()
-        self.swap_frame1.setRange(1, 1)
-        swap_layout.addWidget(self.swap_frame1)
-        swap_layout.addWidget(QLabel("Frame 2:"))
-        self.swap_frame2 = QSpinBox()
-        self.swap_frame2.setRange(1, 1)
-        swap_layout.addWidget(self.swap_frame2)
-        self.swap_btn = QPushButton("\U0001F504 Swap")
-        self.swap_btn.clicked.connect(self._on_swap)
-        swap_layout.addWidget(self.swap_btn)
-        layout.addWidget(swap_group)
+        self.swap_one = QSpinBox(); self.swap_one.setRange(1, 1)
+        self.swap_two = QSpinBox(); self.swap_two.setRange(1, 1)
+        swap_layout.addWidget(self.swap_one); swap_layout.addWidget(QLabel("with")); swap_layout.addWidget(self.swap_two)
+        swap_btn = QPushButton("Swap")
+        swap_btn.clicked.connect(self.swap)
+        swap_layout.addWidget(swap_btn)
+        left.addWidget(swap_group)
 
-        bg_group = QGroupBox("Change Background")
-        bg_layout = QHBoxLayout(bg_group)
-        self.choose_bg_btn = QPushButton("\U0001F5BC Choose Background...")
-        self.choose_bg_btn.clicked.connect(self._on_choose_background)
-        bg_layout.addWidget(self.choose_bg_btn)
-        self.commit_bg_btn = QPushButton("Commit Background")
-        self.commit_bg_btn.clicked.connect(self._on_commit_background)
-        bg_layout.addWidget(self.commit_bg_btn)
-        layout.addWidget(bg_group)
+        bg_group = QGroupBox("Background")
+        bg_layout = QVBoxLayout(bg_group)
+        self.bg_btn = QPushButton("Choose Background Image")
+        self.bg_btn.clicked.connect(self.choose_background)
+        bg_layout.addWidget(self.bg_btn)
+        self.blur = QSlider(Qt.Orientation.Horizontal); self.blur.setRange(0, 20); self.blur.valueChanged.connect(self.preview_background)
+        bg_layout.addWidget(QLabel("Blur preview")); bg_layout.addWidget(self.blur)
+        self.apply_bg = QPushButton("Apply Background")
+        self.apply_bg.clicked.connect(self.commit_background)
+        bg_layout.addWidget(self.apply_bg)
+        left.addWidget(bg_group)
 
-        effects_group = QGroupBox("Box/Light Effects")
-        effects_layout = QHBoxLayout(effects_group)
-        self.effects_dropdown = QComboBox()
-        self.effects_dropdown.addItem("(none)", userData=None)
-        effects_layout.addWidget(self.effects_dropdown)
-        self.apply_effect_btn = QPushButton("Apply Effect")
-        self.apply_effect_btn.clicked.connect(self._on_apply_effect)
-        effects_layout.addWidget(self.apply_effect_btn)
-        layout.addWidget(effects_group)
+        fx_group = QGroupBox("Box / Light Effects")
+        fx_layout = QVBoxLayout(fx_group)
+        self.effect = QComboBox(); self.effect.addItems(self.EFFECTS); self.effect.currentTextChanged.connect(self.preview_effect)
+        fx_layout.addWidget(self.effect)
+        fx_layout.addWidget(QLabel("Effect intensity"))
+        self.intensity = QSlider(Qt.Orientation.Horizontal); self.intensity.setRange(10, 100); self.intensity.setValue(55); self.intensity.valueChanged.connect(self.preview_effect)
+        fx_layout.addWidget(self.intensity)
+        apply_fx = QPushButton("Apply Effect")
+        apply_fx.clicked.connect(self.commit_effect)
+        fx_layout.addWidget(apply_fx)
+        reset = QPushButton("Reset Preview")
+        reset.clicked.connect(self.refresh)
+        fx_layout.addWidget(reset)
+        left.addWidget(fx_group)
+        left.addStretch(1)
+        self.status = QLabel("Select a frame or click a frame in the preview.")
+        left.addWidget(self.status)
 
-        layout.addStretch()
-        self.status_label = QLabel("Manual Edit Panel Ready.")
-        layout.addWidget(self.status_label)
+        right = QWidget(); right_layout = QVBoxLayout(right); right_layout.setContentsMargins(12, 12, 16, 12)
+        right_layout.addWidget(QLabel("Live Edit Preview — this is the current printable composition"))
+        self.preview = LiveCanvasPreview("Load and Auto Fill a design first")
+        self.preview.frame_clicked.connect(self.click_frame)
+        right_layout.addWidget(self.preview, 1)
+        splitter.addWidget(controls); splitter.addWidget(right); splitter.setSizes([410, 990])
+        layout = QVBoxLayout(self); layout.setContentsMargins(0, 0, 0, 0); layout.addWidget(splitter)
 
-    def update_frame_ranges(self):
-        s = self.session
-        n = s.current_template.frame_count if s.current_template else 1
-        for spin in (self.resize_frame_spin, self.swap_frame1, self.swap_frame2):
-            spin.setRange(1, max(1, n))
+    def update_frames(self):
+        n = self.state.template.frame_count if self.state.template else 1
+        for spin in [self.frame, self.swap_one, self.swap_two]: spin.setRange(1, max(1, n))
+        self.refresh()
 
-    def _require_design(self) -> bool:
-        s = self.session
-        if not s.current_template or s.working_canvas() is None:
+    def click_frame(self, index):
+        self.frame.setValue(index + 1)
+
+    def select_frame(self):
+        if not self.state.template: return
+        index = self.frame.value() - 1
+        self.state.selected_frame = index
+        info = self.state.template.frames[index]
+        self.scale.blockSignals(True); self.x.blockSignals(True); self.y.blockSignals(True)
+        self.scale.setValue(info.photo_scale); self.x.setValue(info.photo_offset_x); self.y.setValue(info.photo_offset_y)
+        self.scale.blockSignals(False); self.x.blockSignals(False); self.y.blockSignals(False)
+        self.refresh()
+
+    def _require(self):
+        if not self.state.template or self.state.current_canvas() is None:
             QMessageBox.warning(self, "No Design", "Load a template and run Auto Fill first.")
             return False
         return True
 
-    def _on_apply_resize(self):
-        if not self._require_design():
-            return
-        s = self.session
-        frame_idx = self.resize_frame_spin.value() - 1
+    def preview_resize(self):
+        if not self._require(): return
+        index = self.frame.value() - 1
+        frame = self.state.template.frames[index]
+        old = (frame.photo_scale, frame.photo_offset_x, frame.photo_offset_y)
+        frame.photo_scale, frame.photo_offset_x, frame.photo_offset_y = self.scale.value(), self.x.value(), self.y.value()
+        mapping = {i: f.photo_index for i, f in enumerate(self.state.template.frames) if f.photo_index is not None}
+        self._preview_canvas = self.state.template_manager.fill_frames(self.state.template, self.state.base_canvas, self.state.photos, mapping)
+        frame.photo_scale, frame.photo_offset_x, frame.photo_offset_y = old
+        self.preview.set_canvas(self._preview_canvas, self.state.template.frames, index)
+        self.status.setText("Previewing scale/position. Click Apply Frame Edit to keep it.")
+
+    def commit_resize(self):
+        if not self._require(): return
+        frame = self.state.template.frames[self.frame.value() - 1]
+        frame.photo_scale, frame.photo_offset_x, frame.photo_offset_y = self.scale.value(), self.x.value(), self.y.value()
+        mapping = {i: f.photo_index for i, f in enumerate(self.state.template.frames) if f.photo_index is not None}
+        self.state.canvas = self.state.template_manager.fill_frames(self.state.template, self.state.base_canvas, self.state.photos, mapping)
+        self.state.save(); self.refresh(); self.changed.emit(); self.status.setText("Frame edit applied.")
+
+    def swap(self):
+        if not self._require(): return
         try:
-            s.design_canvas = s.template_manager.resize_photo_in_frame(
-                s.current_template, s.base_canvas, s.loaded_photos, frame_idx,
-                self.resize_scale_spin.value(), 0, 0,
-            )
-        except ValueError as exc:
-            QMessageBox.warning(self, "Resize Failed", str(exc))
-            return
-        s.auto_save()
-        self.on_change()
+            self.state.canvas = self.state.template_manager.swap_photos(self.state.template, self.state.base_canvas, self.state.photos, self.swap_one.value()-1, self.swap_two.value()-1)
+            self.state.save(); self.refresh(); self.changed.emit(); self.status.setText("Photos swapped.")
+        except Exception as exc: QMessageBox.warning(self, "Swap Failed", str(exc))
 
-    def _on_swap(self):
-        if not self._require_design():
-            return
-        s = self.session
-        idx1, idx2 = self.swap_frame1.value() - 1, self.swap_frame2.value() - 1
-        try:
-            s.design_canvas = s.template_manager.swap_photos(s.current_template, s.base_canvas, s.loaded_photos, idx1, idx2)
-        except ValueError as exc:
-            QMessageBox.warning(self, "Swap Failed", str(exc))
-            return
-        s.auto_save()
-        self.on_change()
+    def choose_background(self):
+        path, _ = QFileDialog.getOpenFileName(self, "Choose Background", "", "Images (*.png *.jpg *.jpeg *.webp)")
+        if path:
+            self._background = path; self.preview_background()
 
-    def _on_choose_background(self):
-        file_path, _ = QFileDialog.getOpenFileName(self, "Select Background Image", "", "Images (*.png *.jpg *.jpeg)")
-        if not file_path:
-            return
-        self.session._pending_bg_path = file_path
+    def preview_background(self):
+        if not self._require() or not hasattr(self, "_background"): return
+        self._preview_canvas = self.state.template_manager.change_background_with_preview(self.state.current_canvas(), self._background, self.blur.value())
+        self.preview.set_canvas(self._preview_canvas, self.state.template.frames, self.state.selected_frame)
+        self.status.setText("Background preview only. Click Apply Background to keep it.")
 
-    def _on_commit_background(self):
-        if not self._require_design():
-            return
-        if not self.session._pending_bg_path:
-            QMessageBox.warning(self, "No Background Chosen", "Click 'Choose Background...' first.")
-            return
-        s = self.session
-        s.design_canvas = s.template_manager.change_background_with_preview(
-            s.working_canvas(), s._pending_bg_path, blur_amount=0
-        )
-        s.auto_save()
-        self.on_change()
+    def commit_background(self):
+        if not self._require() or not hasattr(self, "_background"): return
+        self.state.canvas = self.state.template_manager.change_background_with_preview(self.state.current_canvas(), self._background, self.blur.value())
+        self.state.save(); self.refresh(); self.changed.emit(); self.status.setText("Background applied.")
 
-    def _on_apply_effect(self):
-        if not self._require_design():
-            return
-        overlay_path = self.effects_dropdown.currentData()
-        if not overlay_path:
-            self.status_label.setText("Select an effect from the dropdown first.")
-            return
-        s = self.session
-        s.design_canvas = s.template_manager.add_overlay(s.working_canvas(), overlay_path)
-        s.auto_save()
-        self.on_change()
+    def _effect_canvas(self, canvas: Image.Image) -> Image.Image:
+        name, amount = self.effect.currentText(), self.intensity.value() / 100.0
+        result = canvas.convert("RGBA").copy(); w, h = result.size
+        if name == "None": return result
+        overlay = Image.new("RGBA", (w, h), (0, 0, 0, 0)); draw = ImageDraw.Draw(overlay)
+        if name == "Soft Glow":
+            draw.ellipse((-w//4, -h//4, w*5//4, h*5//4), fill=(255,255,255,round(90*amount)))
+            overlay = overlay.filter(ImageFilter.GaussianBlur(max(5, round(min(w,h)*0.08))))
+        elif name == "Warm Light": draw.rectangle((0,0,w,h), fill=(255,170,70,round(85*amount)))
+        elif name == "Cool Light": draw.rectangle((0,0,w,h), fill=(70,170,255,round(75*amount)))
+        elif name == "Spotlight":
+            draw.ellipse((w//4, h//5, w*3//4, h*4//5), fill=(255,255,230,round(135*amount)))
+            overlay = overlay.filter(ImageFilter.GaussianBlur(max(8, round(min(w,h)*0.06))))
+        elif name == "Vignette":
+            thickness = max(10, round(min(w,h)*0.1)); draw.rectangle((0,0,w,h), outline=(0,0,0,round(170*amount)), width=thickness)
+        elif name == "Gold Border": draw.rectangle((5,5,w-6,h-6), outline=(230,180,50,255), width=max(4, round(12*amount)))
+        elif name == "White Border": draw.rectangle((5,5,w-6,h-6), outline=(255,255,255,255), width=max(4, round(12*amount)))
+        elif name == "Drop Shadow":
+            shadow = Image.new("RGBA", (w,h), (0,0,0,0)); shadow.paste(result, (max(2,round(12*amount)), max(2,round(12*amount))))
+            shadow = shadow.filter(ImageFilter.GaussianBlur(max(2,round(10*amount))))
+            result = Image.alpha_composite(shadow, result)
+        return Image.alpha_composite(result, overlay)
 
+    def preview_effect(self):
+        if not self._require(): return
+        self._preview_canvas = self._effect_canvas(self.state.current_canvas())
+        self.preview.set_canvas(self._preview_canvas, self.state.template.frames, self.state.selected_frame)
+        self.status.setText("Effect preview. Click Apply Effect to keep it.")
 
-class TextPanel(QWidget):
-    def __init__(self, session: SessionState, on_change, parent=None):
-        super().__init__(parent)
-        self.session = session
-        self.on_change = on_change
-        self._init_ui()
+    def commit_effect(self):
+        if not self._require(): return
+        self.state.canvas = self._effect_canvas(self.state.current_canvas())
+        self.state.save(); self.refresh(); self.changed.emit(); self.status.setText("Effect applied.")
 
-    def _init_ui(self):
-        layout = QVBoxLayout(self)
-        ready_group = QGroupBox("Readymade Text")
-        ready_layout = QGridLayout(ready_group)
-        self.readymade_dropdown = QComboBox()
-        for p in ["Happy Birthday", "Congratulations", "Love You", "Happy Diwali", "Happy Holi", "Happy New Year"]:
-            self.readymade_dropdown.addItem(p)
-        ready_layout.addWidget(self.readymade_dropdown, 0, 0)
-        self.add_readymade_btn = QPushButton("Add Readymade Text")
-        self.add_readymade_btn.clicked.connect(self._on_add_readymade)
-        ready_layout.addWidget(self.add_readymade_btn, 1, 0)
-        layout.addWidget(ready_group)
-
-        manual_group = QGroupBox("Manual Text")
-        manual_layout = QVBoxLayout(manual_group)
-        self.add_manual_btn = QPushButton("Add Manual Text...")
-        self.add_manual_btn.clicked.connect(self._on_add_manual_text)
-        manual_layout.addWidget(self.add_manual_btn)
-        layout.addWidget(manual_group)
-
-        text3d_group = QGroupBox("3D Text Generator")
-        text3d_layout = QGridLayout(text3d_group)
-        text3d_layout.addWidget(QLabel("Text:"), 0, 0)
-        self.text3d_edit = QLineEdit()
-        text3d_layout.addWidget(self.text3d_edit, 0, 1)
-        self.generate_3d_btn = QPushButton("Generate 3D Text")
-        self.generate_3d_btn.clicked.connect(self._on_generate_3d_text)
-        text3d_layout.addWidget(self.generate_3d_btn, 1, 0, 1, 2)
-        layout.addWidget(text3d_group)
-
-        layout.addStretch()
-        self.status_label = QLabel("Text Panel Ready.")
-        layout.addWidget(self.status_label)
-
-    def _require_design(self) -> bool:
-        s = self.session
-        if not s.current_template or s.working_canvas() is None:
-            QMessageBox.warning(self, "No Design", "Load a template and run Auto Fill first.")
-            return False
-        return True
-
-    def _on_add_readymade(self):
-        if not self._require_design():
-            return
-        s = self.session
-        position = (50, 250)
-        s.design_canvas = s.template_manager.add_readymade_text(
-            s.working_canvas(), self.readymade_dropdown.currentText(), position
-        )
-        s.auto_save()
-        self.on_change()
-
-    def _on_add_manual_text(self):
-        if not self._require_design():
-            return
-        dialog = TextToolDialog(self)
-        if not dialog.exec():
-            return
-        values = dialog.get_values()
-        if not values["text"]:
-            return
-        s = self.session
-        w, h = s.working_canvas().size
-        position = (round(values["pos_x_ratio"] * w), round(values["pos_y_ratio"] * h))
-        s.design_canvas = s.template_manager.add_text(
-            s.working_canvas(), values["text"], position,
-            font_size=values["font_size"], color=values["color"],
-        )
-        s.auto_save()
-        self.on_change()
-
-    def _on_generate_3d_text(self):
-        if not self._require_design():
-            return
-        text = self.text3d_edit.text().strip()
-        if not text:
-            QMessageBox.warning(self, "No Text", "Enter text for the 3D text generator first.")
-            return
-        s = self.session
-        text_layer = s.template_manager.generate_3d_text_stub(text)
-        canvas = s.working_canvas().convert("RGBA").copy()
-        canvas.alpha_composite(text_layer, (50, 50))
-        s.design_canvas = canvas
-        s.auto_save()
-        self.on_change()
+    def refresh(self):
+        self._preview_canvas = None
+        self.preview.set_canvas(self.state.current_canvas(), self.state.template.frames if self.state.template else [], self.state.selected_frame)
 
 
 class PrintPanel(QWidget):
-    def __init__(self, session: SessionState, on_change, parent=None):
-        super().__init__(parent)
-        self.session = session
-        self.on_change = on_change
-        self._extra_design_path: Optional[str] = None
-        self._init_ui()
+    def __init__(self, state: SessionState, parent=None):
+        super().__init__(parent); self.state = state; self._build()
 
-    def _init_ui(self):
-        layout = QVBoxLayout(self)
-        mirror_group = QGroupBox("Mirror Settings (Mirror 1 = primary, Mirror 2 = extra design)")
-        mirror_layout = QHBoxLayout(mirror_group)
-        self.mirror1_checkbox = QCheckBox("Mirror 1")
-        self.mirror1_checkbox.setChecked(True)
-        mirror_layout.addWidget(self.mirror1_checkbox)
-        self.mirror2_checkbox = QCheckBox("Mirror 2")
-        mirror_layout.addWidget(self.mirror2_checkbox)
-        layout.addWidget(mirror_group)
+    def _build(self):
+        splitter = QSplitter(Qt.Orientation.Horizontal)
+        controls = QWidget(); left = QVBoxLayout(controls); left.setContentsMargins(16,12,12,12)
+        mirror = QGroupBox("Mirror Settings")
+        ml = QVBoxLayout(mirror); self.mirror1 = QCheckBox("Mirror primary design"); self.mirror1.setChecked(True); self.mirror2 = QCheckBox("Mirror extra design")
+        self.mirror1.toggled.connect(self.refresh); self.mirror2.toggled.connect(self.refresh); ml.addWidget(self.mirror1); ml.addWidget(self.mirror2); left.addWidget(mirror)
+        extra = QGroupBox("Add Extra Design")
+        el = QVBoxLayout(extra); self.extra_btn = QPushButton("Choose Extra Design Image"); self.extra_btn.clicked.connect(self.choose_extra); el.addWidget(self.extra_btn)
+        self.rotate = QCheckBox("Rotate extra design 90 degrees"); self.rotate.toggled.connect(self.refresh); el.addWidget(self.rotate); left.addWidget(extra)
+        self.settings_btn = QPushButton("Paper / DPI Settings"); self.settings_btn.clicked.connect(self.settings); left.addWidget(self.settings_btn)
+        self.export_btn = QPushButton("Export Final Print PNG + PDF"); self.export_btn.clicked.connect(self.export); left.addWidget(self.export_btn); left.addStretch(1)
+        self.status = QLabel("The preview shows the exact print sheet that will be exported."); self.status.setWordWrap(True); left.addWidget(self.status)
+        right = QWidget(); rl = QVBoxLayout(right); rl.setContentsMargins(12,12,16,12); rl.addWidget(QLabel("Final Print Preview — exact output layout")); self.preview = LiveCanvasPreview("Load and edit a design first"); rl.addWidget(self.preview,1)
+        splitter.addWidget(controls); splitter.addWidget(right); splitter.setSizes([380,1020]); layout=QVBoxLayout(self); layout.setContentsMargins(0,0,0,0); layout.addWidget(splitter)
 
-        extra_group = QGroupBox("Add Extra Design")
-        extra_layout = QGridLayout(extra_group)
-        self.choose_extra_btn = QPushButton("Choose Extra Design Image...")
-        self.choose_extra_btn.clicked.connect(self._on_choose_extra_design)
-        extra_layout.addWidget(self.choose_extra_btn, 0, 0, 1, 2)
-        self.extra_path_label = QLabel("(none selected)")
-        extra_layout.addWidget(self.extra_path_label, 1, 0, 1, 2)
-        self.rotate_extra_checkbox = QCheckBox("Rotate 90 degrees")
-        extra_layout.addWidget(self.rotate_extra_checkbox, 2, 0, 1, 2)
-        layout.addWidget(extra_group)
+    def choose_extra(self):
+        path,_ = QFileDialog.getOpenFileName(self,"Choose Extra Design","","Images (*.png *.jpg *.jpeg)")
+        if path: self.state.extra_design_path=path; self.refresh()
 
-        export_group = QGroupBox("Export")
-        export_layout = QVBoxLayout(export_group)
-        self.prepare_print_btn = QPushButton("\U0001F5A8 Prepare for Print")
-        self.prepare_print_btn.clicked.connect(self._on_prepare_print)
-        export_layout.addWidget(self.prepare_print_btn)
-        layout.addWidget(export_group)
+    def settings(self):
+        dialog = PrintSettingsDialog(self, self.state.print_exporter.settings)
+        if dialog.exec(): self.state.print_exporter.settings=dialog.get_settings(); self.refresh()
 
-        layout.addStretch()
-        self.status_label = QLabel("Print Panel Ready.")
-        layout.addWidget(self.status_label)
+    def refresh(self):
+        canvas=self.state.current_canvas()
+        if canvas is None: self.preview.set_canvas(None); return
+        extra=None
+        if self.state.extra_design_path: extra=Image.open(self.state.extra_design_path).convert("RGB")
+        sheet=self.state.print_exporter.build_print_sheet(canvas, self.mirror1.isChecked(), self.mirror2.isChecked(), extra, self.rotate.isChecked())
+        self.preview.set_canvas(sheet)
 
-    def _on_choose_extra_design(self):
-        file_path, _ = QFileDialog.getOpenFileName(self, "Select Extra Design Image", "", "Images (*.png *.jpg *.jpeg)")
-        if not file_path:
-            return
-        self._extra_design_path = file_path
-        self.extra_path_label.setText(Path(file_path).name)
-
-    def _on_prepare_print(self):
-        s = self.session
-        if s.working_canvas() is None:
-            QMessageBox.warning(self, "No Design", "Load a template and run Auto Fill first.")
-            return
-
-        dialog = PrintSettingsDialog(self, initial=s.print_exporter.settings)
-        if not dialog.exec():
-            return
-        s.print_exporter.settings = dialog.get_settings()
-
-        output_dir = QFileDialog.getExistingDirectory(self, "Choose Output Folder")
-        if not output_dir:
-            return
-
-        extra_design_img = None
-        if self._extra_design_path:
-            extra_design_img = Image.open(self._extra_design_path).convert("RGB")
-
-        base_name = Path(s.current_template.source_path).stem if s.current_template else "design"
+    def export(self):
+        if self.state.current_canvas() is None: QMessageBox.warning(self,"No Design","Load and edit a design first."); return
+        folder=QFileDialog.getExistingDirectory(self,"Choose Export Folder")
+        if not folder:return
+        extra=Image.open(self.state.extra_design_path).convert("RGB") if self.state.extra_design_path else None
+        name=Path(self.state.template.source_path).stem if self.state.template else "design"
         try:
-            outputs = s.print_exporter.export(
-                s.working_canvas(), output_dir, base_name,
-                mirror_1=self.mirror1_checkbox.isChecked(),
-                mirror_2=self.mirror2_checkbox.isChecked(),
-                extra_design=extra_design_img,
-                extra_design_rotate=self.rotate_extra_checkbox.isChecked(),
-                formats=("png", "pdf"),
-            )
-        except Exception as exc:
-            logger.exception("Print export failed")
-            QMessageBox.critical(self, "Export Failed", str(exc))
-            return
+            paths=self.state.print_exporter.export(self.state.current_canvas(),folder,name,self.mirror1.isChecked(),self.mirror2.isChecked(),extra,self.rotate.isChecked(),formats=("png","pdf"))
+            self.status.setText("Exported:\n"+"\n".join(paths))
+        except Exception as exc: QMessageBox.critical(self,"Export Failed",str(exc))
 
-        self.status_label.setText(f"Exported: {', '.join(outputs)}")
-        QMessageBox.information(self, "Prepare for Print", "Print-ready file(s) created:\n" + "\n".join(outputs))
+
+class TextPanel(QWidget):
+    changed=pyqtSignal()
+    def __init__(self,state,parent=None): super().__init__(parent); self.state=state; self._build()
+    def _build(self):
+        layout=QVBoxLayout(self); layout.addWidget(QLabel("Text tools apply directly to the live design.")); self.manual=QPushButton("Add Manual Text"); self.manual.clicked.connect(self.add_manual); layout.addWidget(self.manual); self.text3d=QLineEdit(); self.text3d.setPlaceholderText("3D text"); layout.addWidget(self.text3d); self.three=QPushButton("Add 3D Text"); self.three.clicked.connect(self.add_3d); layout.addWidget(self.three); layout.addStretch(1)
+    def add_manual(self):
+        if self.state.current_canvas() is None:return
+        d=TextToolDialog(self)
+        if d.exec():
+            v=d.get_values(); w,h=self.state.current_canvas().size; self.state.canvas=self.state.template_manager.add_text(self.state.current_canvas(),v['text'],(round(w*v['pos_x_ratio']),round(h*v['pos_y_ratio'])),v['font_size'],v['color']); self.changed.emit()
+    def add_3d(self):
+        if self.state.current_canvas() is None or not self.text3d.text().strip():return
+        layer=self.state.template_manager.generate_3d_text_stub(self.text3d.text().strip()); canvas=self.state.current_canvas().copy(); canvas.alpha_composite(layer,(50,50)); self.state.canvas=canvas; self.changed.emit()
 
 
 class MockupPanel(QWidget):
-    def __init__(self, session: SessionState, on_change, parent=None):
-        super().__init__(parent)
-        self.session = session
-        self.on_change = on_change
-        self._last_mockup: Optional[Image.Image] = None
-        self._init_ui()
-
-    def _init_ui(self):
-        layout = QVBoxLayout(self)
-        variant_group = QGroupBox("3D Mockup Variant")
-        variant_layout = QHBoxLayout(variant_group)
-        self.variant_dropdown = QComboBox()
-        for v in self.session.mockup_generator.mug_variants:
-            self.variant_dropdown.addItem(v.name, userData=v)
-        variant_layout.addWidget(self.variant_dropdown)
-        layout.addWidget(variant_group)
-
-        preview_group = QGroupBox("Preview")
-        preview_layout = QHBoxLayout(preview_group)
-        self.generate_mockup_btn = QPushButton("\U0001F9F6 Generate 3D Preview")
-        self.generate_mockup_btn.clicked.connect(self._on_generate_mockup)
-        preview_layout.addWidget(self.generate_mockup_btn)
-        layout.addWidget(preview_group)
-
-        export_group = QGroupBox("Export for WhatsApp/Email")
-        export_layout = QHBoxLayout(export_group)
-        self.export_jpg_btn = QPushButton("\U0001F4E4 Export JPG")
-        self.export_jpg_btn.clicked.connect(self._on_export_jpg)
-        export_layout.addWidget(self.export_jpg_btn)
-        layout.addWidget(export_group)
-
-        layout.addStretch()
-        self.status_label = QLabel("Mockup Panel Ready.")
-        layout.addWidget(self.status_label)
-
-    def _on_generate_mockup(self):
-        s = self.session
-        if s.working_canvas() is None:
-            QMessageBox.warning(self, "No Design", "Load a template and run Auto Fill first.")
-            return
-        variant = self.variant_dropdown.currentData()
-        self._last_mockup = s.mockup_generator.render_cylinder_mockup(s.working_canvas(), variant=variant)
-        MOCKUP_CACHE_DIR.mkdir(parents=True, exist_ok=True)
-        out_path = str(MOCKUP_CACHE_DIR / "_live_mockup.png")
-        self._last_mockup.save(out_path, "PNG")
-        dialog = MockupPreviewDialog(out_path, self)
-        dialog.exec()
-        self.status_label.setText(f"Generated 3D preview: {self.variant_dropdown.currentText()}")
-
-    def _on_export_jpg(self):
-        if self._last_mockup is None:
-            QMessageBox.warning(self, "No Mockup Yet", "Click 'Generate 3D Preview' first.")
-            return
-        file_path, _ = QFileDialog.getSaveFileName(self, "Export Mockup JPG", "mockup.jpg", "JPEG (*.jpg)")
-        if not file_path:
-            return
-        self.session.mockup_generator.export_mockup_jpg(self._last_mockup, file_path)
-        self.status_label.setText(f"Exported: {file_path}")
-        QMessageBox.information(self, "Export Complete", f"Mockup exported for WhatsApp/email:\n{file_path}")
+    def __init__(self,state,parent=None): super().__init__(parent); self.state=state; self._last=None; self._build()
+    def _build(self):
+        layout=QVBoxLayout(self); self.variant=QComboBox(); [self.variant.addItem(v.name,v) for v in self.state.mockup_generator.mug_variants]; layout.addWidget(self.variant); b=QPushButton("Generate 3D Preview"); b.clicked.connect(self.generate); layout.addWidget(b); e=QPushButton("Export JPG"); e.clicked.connect(self.export); layout.addWidget(e); layout.addStretch(1)
+    def generate(self):
+        if self.state.current_canvas() is None:return
+        self._last=self.state.mockup_generator.render_cylinder_mockup(self.state.current_canvas(),variant=self.variant.currentData()); path=MOCKUP_CACHE_DIR/'live.png'; path.parent.mkdir(parents=True,exist_ok=True); self._last.save(path); MockupPreviewDialog(str(path),self).exec()
+    def export(self):
+        if self._last is None:return
+        path,_=QFileDialog.getSaveFileName(self,"Export JPG","mockup.jpg","JPEG (*.jpg)")
+        if path:self.state.mockup_generator.export_mockup_jpg(self._last,path)
 
 
 class MainWindow(QMainWindow):
     def __init__(self):
-        super().__init__()
-        self.setWindowTitle("SubliStudio v2.2")
-        self.resize(1400, 900)
-        self.session = SessionState()
-        self._init_ui()
-
-    def _init_ui(self):
-        central = QWidget()
-        self.setCentralWidget(central)
-        root_layout = QVBoxLayout(central)
-
-        self.tabs = QTabWidget()
-        self.design_panel = DesignPanel(self.session, self._on_session_changed)
-        self.manual_panel = ManualEditPanel(self.session, self._on_session_changed)
-        self.text_panel = TextPanel(self.session, self._on_session_changed)
-        self.print_panel = PrintPanel(self.session, self._on_session_changed)
-        self.mockup_panel = MockupPanel(self.session, self._on_session_changed)
-
-        self.tabs.addTab(self.design_panel, "\U0001F3A8 Design")
-        self.tabs.addTab(self.manual_panel, "\u270F\uFE0F Manual Edit")
-        self.tabs.addTab(self.text_panel, "\U0001F524 Text")
-        self.tabs.addTab(self.print_panel, "\U0001F5A8 Print")
-        self.tabs.addTab(self.mockup_panel, "\U0001F9F6 Mockup")
-
-        root_layout.addWidget(self.tabs, stretch=1)
-        self.design_panel.templateLoaded.connect(self._on_template_loaded)
-        self.statusBar().showMessage("SubliStudio v2.2 Ready.")
-
-    def _on_template_loaded(self):
-        self.manual_panel.update_frame_ranges()
-
-    def _on_session_changed(self, preview_override: Optional[Image.Image] = None):
-        self.design_panel.refresh_preview()
+        super().__init__(); self.setWindowTitle("SubliStudio v2.3"); self.resize(1500,950); self.state=SessionState(); self._build()
+    def _build(self):
+        tabs=QTabWidget(); self.setCentralWidget(tabs)
+        self.design=DesignPanel(self.state); self.manual=ManualEditPanel(self.state); self.text=TextPanel(self.state); self.print=PrintPanel(self.state); self.mockup=MockupPanel(self.state)
+        tabs.addTab(self.design,"🎨 Design"); tabs.addTab(self.manual,"✏️ Manual Edit"); tabs.addTab(self.text,"🔤 Text"); tabs.addTab(self.print,"🖨 Print"); tabs.addTab(self.mockup,"🧶 Mockup")
+        self.design.template_loaded.connect(self.manual.update_frames)
+        self.design.changed.connect(self._refresh_all); self.manual.changed.connect(self._refresh_all); self.text.changed.connect(self._refresh_all)
+        tabs.currentChanged.connect(lambda _: self._refresh_all())
+        self.statusBar().showMessage("SubliStudio v2.3 Ready")
+    def _refresh_all(self):
+        self.design.refresh(); self.manual.refresh(); self.print.refresh()
