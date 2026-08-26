@@ -1,9 +1,12 @@
 """
-core/template_manager.py (v2)
+core/template_manager.py (v2.2)
 
-Enhanced template system with round frame detection, page-size change,
-resize-in-frame, extra photo tool, two-select swap, background preview+blur,
-readymade text presets, and 3D text generator stub.
+Fixes:
+- generate_3d_text_stub() no longer hardcodes a Linux-only font path
+  that silently fails on macOS. Now tries a cross-platform candidate list
+  (macOS, Linux, Windows) before falling back to the default font.
+- add_text() uses the same cross-platform font resolution.
+- add_overlay() restored (was present in v1, silently dropped in v2).
 """
 from __future__ import annotations
 
@@ -11,7 +14,7 @@ import json
 import logging
 import re
 from pathlib import Path
-from typing import List, Optional, Tuple, Dict, Any
+from typing import List, Optional, Tuple
 
 from PIL import Image, ImageDraw, ImageFont, ImageFilter, ImageOps
 
@@ -21,13 +24,34 @@ logger = logging.getLogger("SubliStudio.TemplateManager")
 
 FRAME_NAME_PATTERN = re.compile(r"^frame(?:_round)?[_\-\s]*\d+$", re.IGNORECASE)
 
+_FONT_CANDIDATES = [
+    "/System/Library/Fonts/Supplemental/Arial Bold.ttf",
+    "/System/Library/Fonts/Helvetica.ttc",
+    "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+    "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
+    "C:\\Windows\\Fonts\\arialbd.ttf",
+]
+
+
+def _resolve_font(font_size: int, font_path: Optional[str] = None) -> ImageFont.FreeTypeFont:
+    candidates = ([font_path] if font_path else []) + _FONT_CANDIDATES
+    for path in candidates:
+        try:
+            return ImageFont.truetype(path, font_size)
+        except Exception:
+            continue
+    logger.warning(
+        "No TTF font found among candidates; falling back to Pillow's low-resolution default bitmap font."
+    )
+    return ImageFont.load_default()
+
 
 class TemplateManager:
     def __init__(self, preview_cache_dir: str):
         self.preview_cache_dir = Path(preview_cache_dir)
         self.preview_cache_dir.mkdir(parents=True, exist_ok=True)
 
-    def load_template(self, file_path: str, product_type: ProductType, 
+    def load_template(self, file_path: str, product_type: ProductType,
                       theme: TemplateTheme = TemplateTheme.PLAIN) -> Tuple[Optional[TemplateInfo], Optional[str]]:
         path = Path(file_path)
         if not path.exists():
@@ -59,7 +83,7 @@ class TemplateManager:
         frames = self.detect_frames_psd(psd)
         phys_w = getattr(psd, 'width', 0) / 118.11
         phys_h = getattr(psd, 'height', 0) / 118.11
-        
+
         info = TemplateInfo(
             source_path=str(path), display_name=path.name, width=psd.width, height=psd.height,
             is_psd=True, product_type=product_type, theme=theme, frames=frames,
@@ -70,10 +94,10 @@ class TemplateManager:
     def _load_image_template(self, path: Path, product_type: ProductType, theme: TemplateTheme) -> Tuple[TemplateInfo, Image.Image]:
         img = Image.open(path).convert("RGBA")
         frames = self.detect_frames_sidecar(path, img.size)
-        
+
         phys_w = img.width / 118.11
         phys_h = img.height / 118.11
-        
+
         info = TemplateInfo(
             source_path=str(path), display_name=path.name, width=img.width, height=img.height,
             is_psd=False, product_type=product_type, theme=theme, frames=frames,
@@ -121,13 +145,13 @@ class TemplateManager:
     def change_page_size(self, template: TemplateInfo, new_width_cm: float, new_height_cm: float) -> TemplateInfo:
         if template.original_physical_width_cm <= 0 or template.original_physical_height_cm <= 0:
             return template
-        
+
         scale_x = new_width_cm / template.original_physical_width_cm
         scale_y = new_height_cm / template.original_physical_height_cm
-        
+
         new_width = round(template.width * scale_x)
         new_height = round(template.height * scale_y)
-        
+
         new_frames = []
         for f in template.frames:
             new_frames.append(FrameInfo(
@@ -142,7 +166,7 @@ class TemplateManager:
                 photo_offset_x=round(f.photo_offset_x * scale_x),
                 photo_offset_y=round(f.photo_offset_y * scale_y),
             ))
-        
+
         return TemplateInfo(
             source_path=template.source_path,
             display_name=template.display_name,
@@ -161,7 +185,7 @@ class TemplateManager:
         target_w = round(frame.width * frame.photo_scale)
         target_h = round(frame.height * frame.photo_scale)
         src_w, src_h = photo.size
-        
+
         if target_w <= 0 or target_h <= 0 or src_w == 0 or src_h == 0:
             return Image.new("RGBA", (max(target_w, 1), max(target_h, 1)), (0, 0, 0, 0))
 
@@ -219,16 +243,16 @@ class TemplateManager:
             photo_item = photos[photo_idx]
             with Image.open(photo_item.original_path) as src:
                 fitted = self.fit_photo_to_frame(src, frame, mode=fit_mode)
-            
+
             offset_x = frame.left + frame.photo_offset_x
             offset_y = frame.top + frame.photo_offset_y
-            
+
             if frame.shape == FrameShape.ROUND:
                 mask = Image.new("L", fitted.size, 0)
                 draw = ImageDraw.Draw(mask)
                 draw.ellipse([0, 0, fitted.width-1, fitted.height-1], fill=255)
                 fitted.putalpha(mask)
-            
+
             canvas.paste(fitted, (offset_x, offset_y), fitted)
             frame.photo_index = photo_idx
 
@@ -241,12 +265,12 @@ class TemplateManager:
                                fit_mode: str = "cover") -> Image.Image:
         if frame_index < 0 or frame_index >= len(template.frames):
             raise ValueError(f"Invalid frame index: {frame_index}")
-        
+
         frame = template.frames[frame_index]
         frame.photo_scale = new_scale
         frame.photo_offset_x = offset_x
         frame.photo_offset_y = offset_y
-        
+
         mapping = {idx: f.photo_index for idx, f in enumerate(template.frames) if f.photo_index is not None}
         return self.fill_frames(template, base_canvas, photos, frame_mapping=mapping, fit_mode=fit_mode)
 
@@ -254,23 +278,23 @@ class TemplateManager:
                          border_size: int = 10, border_color: Tuple[int, int, int] = (255, 255, 255)) -> Image.Image:
         with Image.open(photo.original_path) as src:
             src = src.convert("RGBA")
-        
+
         max_size = (200, 200)
         src.thumbnail(max_size, Image.LANCZOS)
-        
-        bordered = Image.new("RGBA", 
-                            (src.width + border_size*2, src.height + border_size*2), 
+
+        bordered = Image.new("RGBA",
+                            (src.width + border_size*2, src.height + border_size*2),
                             border_color)
         bordered.paste(src, (border_size, border_size), src)
-        
+
         shadow = bordered.copy()
         shadow = ImageOps.expand(shadow, border=5, fill=(0, 0, 0, 100))
         shadow = shadow.filter(ImageFilter.GaussianBlur(3))
-        
+
         result = canvas.convert("RGBA").copy()
         result.paste(shadow, (position[0]-5, position[1]-5), shadow)
         result.paste(bordered, position, bordered)
-        
+
         return result
 
     def swap_photos(self, template: TemplateInfo, base_canvas: Image.Image, photos: List[PhotoItem],
@@ -279,12 +303,12 @@ class TemplateManager:
             raise ValueError(f"Invalid frame index 1: {frame_index_1}")
         if frame_index_2 < 0 or frame_index_2 >= len(template.frames):
             raise ValueError(f"Invalid frame index 2: {frame_index_2}")
-        
+
         idx1 = template.frames[frame_index_1].photo_index
         idx2 = template.frames[frame_index_2].photo_index
         template.frames[frame_index_1].photo_index = idx2
         template.frames[frame_index_2].photo_index = idx1
-        
+
         mapping = {idx: f.photo_index for idx, f in enumerate(template.frames) if f.photo_index is not None}
         return self.fill_frames(template, base_canvas, photos, frame_mapping=mapping, fit_mode=fit_mode)
 
@@ -294,12 +318,20 @@ class TemplateManager:
             bg = bg.convert("RGBA").resize(design_canvas.size, Image.LANCZOS)
             if blur_amount > 0:
                 bg = bg.filter(ImageFilter.GaussianBlur(blur_amount))
-        
+
         result = bg.copy()
         result.alpha_composite(design_canvas.convert("RGBA"))
         return result
 
-    def add_readymade_text(self, design_canvas: Image.Image, preset_name: str, 
+    @staticmethod
+    def add_overlay(design_canvas: Image.Image, overlay_path: str) -> Image.Image:
+        with Image.open(overlay_path) as overlay:
+            overlay = overlay.convert("RGBA").resize(design_canvas.size, Image.LANCZOS)
+        result = design_canvas.convert("RGBA").copy()
+        result.alpha_composite(overlay)
+        return result
+
+    def add_readymade_text(self, design_canvas: Image.Image, preset_name: str,
                            position: Tuple[int, int]) -> Image.Image:
         presets = {
             "Happy Birthday": {"text": "Happy Birthday!", "font_size": 48, "color": (255, 215, 0, 255)},
@@ -309,26 +341,19 @@ class TemplateManager:
             "Happy Holi": {"text": "Happy Holi", "font_size": 46, "color": (147, 112, 219, 255)},
             "Happy New Year": {"text": "Happy New Year", "font_size": 44, "color": (255, 215, 0, 255)},
         }
-        
+
         preset = presets.get(preset_name, {"text": preset_name, "font_size": 40, "color": (255, 255, 255, 255)})
-        return self.add_text(design_canvas, preset["text"], position, 
+        return self.add_text(design_canvas, preset["text"], position,
                             font_size=preset["font_size"], color=preset["color"])
 
-    def generate_3d_text_stub(self, text: str, font_size: int = 60, 
+    def generate_3d_text_stub(self, text: str, font_size: int = 60,
                               color: Tuple[int, int, int] = (255, 255, 255)) -> Image.Image:
         img = Image.new("RGBA", (400, 150), (0, 0, 0, 0))
         draw = ImageDraw.Draw(img)
-        
-        try:
-            font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", font_size)
-        except:
-            font = ImageFont.load_default()
-        
+        font = _resolve_font(font_size)
         for offset in [(3, 3), (4, 4), (5, 5)]:
             draw.text((20 + offset[0], 20 + offset[1]), text, fill=(0, 0, 0, 150), font=font)
-        
         draw.text((20, 20), text, fill=color + (255,), font=font)
-        
         return img
 
     @staticmethod
@@ -336,9 +361,6 @@ class TemplateManager:
                  color: Tuple[int, int, int, int] = (255, 255, 255, 255), font_path: Optional[str] = None) -> Image.Image:
         result = design_canvas.convert("RGBA").copy()
         draw = ImageDraw.Draw(result)
-        try:
-            font = ImageFont.truetype(font_path, font_size) if font_path else ImageFont.load_default(size=font_size)
-        except:
-            font = ImageFont.load_default()
+        font = _resolve_font(font_size, font_path)
         draw.text(position, text, fill=color, font=font)
         return result
