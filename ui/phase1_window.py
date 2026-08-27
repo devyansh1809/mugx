@@ -1,10 +1,12 @@
-"""Product-aware Phase 1 desktop workflow.
+"""Product-aware Phase 1 desktop workflow with Phase 3 mockups.
 
 Phase 1: exact-photo selection, template auto-fill, live manual edit/effect
 preview, and final print preview/export.
 Phase 2: data-driven ProductCatalog category/model selection controls the
 blank canvas, template path, print DPI/mirroring, safe/bleed values, and
 mockup profile information.
+Phase 3: mockup preview tab that renders the final design onto product
+mockups using profile-defined mockup assets.
 """
 from __future__ import annotations
 
@@ -28,9 +30,10 @@ from core.product_catalog import ProductCatalog, ProductProfile, create_blank_ca
 from ui.photo_selection_dialog import PhotoSelectionDialog
 from ui.live_canvas_preview import LiveCanvasPreview
 from ui.print_settings_dialog import PrintSettingsDialog
+from ui.mockup_preview_widget import MockupPreviewWidget
 
 APP_DATA = Path.home() / ".subli_studio"
-CACHE = APP_DATA / "phase12_cache"
+CACHE = APP_DATA / "phase123_cache"
 
 
 class DesignState:
@@ -72,7 +75,7 @@ class Phase1Window(QMainWindow):
 
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("SubliStudio — Phase 1 + 2")
+        self.setWindowTitle("SubliStudio — Phase 1 + 2 + 3")
         self.resize(1500, 940)
         self.state = DesignState()
         self._build()
@@ -84,6 +87,7 @@ class Phase1Window(QMainWindow):
         self.tabs.addTab(self._build_design_tab(), "1. Design")
         self.tabs.addTab(self._build_edit_tab(), "2. Manual Edit")
         self.tabs.addTab(self._build_print_tab(), "3. Print Preview")
+        self.tabs.addTab(self._build_mockup_tab(), "4. Mockup Preview")
         self.tabs.currentChanged.connect(lambda _index: self.refresh_all())
         self.statusBar().showMessage("Select a product profile, then choose photos and a template.")
 
@@ -279,6 +283,16 @@ class Phase1Window(QMainWindow):
         layout.addWidget(split)
         return page
 
+    def _build_mockup_tab(self) -> QWidget:
+        page = QWidget()
+        layout = QVBoxLayout(page)
+        layout.setContentsMargins(16, 12, 16, 12)
+        layout.addWidget(QLabel("Product Mockup Preview"))
+        self.mockup_widget = MockupPreviewWidget(self.state.mockups)
+        self.mockup_widget.mockup_exported.connect(lambda path: self.statusBar().showMessage(f"Mockup exported: {path}"))
+        layout.addWidget(self.mockup_widget, 1)
+        return page
+
     def _populate_categories(self) -> None:
         self.category_combo.blockSignals(True)
         self.category_combo.clear()
@@ -318,6 +332,7 @@ class Phase1Window(QMainWindow):
             f"Mockup profiles: {mockups}"
         )
         self.frame_spin.setRange(1, 1)
+        self.mockup_widget.set_product(profile)
         self.refresh_all()
         self.statusBar().showMessage(f"Selected {profile.name}. You may create a blank design or load a compatible template.")
 
@@ -520,13 +535,15 @@ class Phase1Window(QMainWindow):
         self.print_preview.set_canvas(sheet)
 
     def refresh_all(self) -> None:
+        canvas = self.state.current_canvas()
         self.design_preview.set_canvas(
-            self.state.current_canvas(),
+            canvas,
             self.state.template.frames if self.state.template else [],
             self.state.selected_frame,
         )
         self.refresh_edit()
         self.refresh_print()
+        self.mockup_widget.set_design(canvas)
 
     def _export_print(self) -> None:
         source = self.state.current_canvas()
