@@ -1,47 +1,24 @@
-"""
-main.py -- SubliStudio v2 entry point.
-
-Run with:
-    python main.py
-"""
-
+"""SubliStudio Phase 1 entry point."""
 import sys
 import logging
 from pathlib import Path
-
 from PyQt6.QtWidgets import QApplication
-
-from ui.main_window import MainWindow
+from ui.phase1_window import Phase1Window
 
 APP_DATA_DIR = Path.home() / ".subli_studio"
-LOG_DIR = APP_DATA_DIR / "logs"
-
 
 def setup_logging():
-    LOG_DIR.mkdir(parents=True, exist_ok=True)
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-        handlers=[
-            logging.FileHandler(LOG_DIR / "subli_studio.log"),
-            logging.StreamHandler(),
-        ],
-    )
-
+    log_dir = APP_DATA_DIR / "logs"
+    log_dir.mkdir(parents=True, exist_ok=True)
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s", handlers=[logging.FileHandler(log_dir / "subli_studio.log"), logging.StreamHandler()])
 
 def main():
     setup_logging()
-    logger = logging.getLogger("SubliStudio.Main")
-    logger.info("Starting SubliStudio v2...")
-
     app = QApplication(sys.argv)
     app.setApplicationName("SubliStudio")
-
-    window = MainWindow()
+    window = Phase1Window()
     window.show()
-
     sys.exit(app.exec())
-
 
 if __name__ == "__main__":
     main()
