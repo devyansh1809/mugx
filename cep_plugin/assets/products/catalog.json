@@ -1,0 +1,145 @@
+{
+  "products": [
+    {
+      "id": "mug",
+      "name": "Mug",
+      "canvas": {
+        "width_px": 3600,
+        "height_px": 1200,
+        "dpi": 300
+      },
+      "safe_area": {
+        "left_px": 150,
+        "right_px": 150,
+        "top_px": 150,
+        "bottom_px": 150
+      },
+      "bleed_px": 75,
+      "mirror": {
+        "enabled": true,
+        "axis": "vertical"
+      },
+      "template_folder": "assets/templates/mug"
+    },
+    {
+      "id": "bottle",
+      "name": "Bottle",
+      "canvas": {
+        "width_px": 2400,
+        "height_px": 3600,
+        "dpi": 300
+      },
+      "safe_area": {
+        "left_px": 120,
+        "right_px": 120,
+        "top_px": 120,
+        "bottom_px": 120
+      },
+      "bleed_px": 60,
+      "mirror": {
+        "enabled": false
+      },
+      "template_folder": "assets/templates/bottle"
+    },
+    {
+      "id": "cushion",
+      "name": "Cushion",
+      "canvas": {
+        "width_px": 3000,
+        "height_px": 3000,
+        "dpi": 300
+      },
+      "safe_area": {
+        "left_px": 100,
+        "right_px": 100,
+        "top_px": 100,
+        "bottom_px": 100
+      },
+      "bleed_px": 50,
+      "mirror": {
+        "enabled": false
+      },
+      "template_folder": "assets/templates/cushion"
+    },
+    {
+      "id": "tshirt",
+      "name": "T‑Shirt",
+      "canvas": {
+        "width_px": 4500,
+        "height_px": 5400,
+        "dpi": 300
+      },
+      "safe_area": {
+        "left_px": 300,
+        "right_px": 300,
+        "top_px": 300,
+        "bottom_px": 300
+      },
+      "bleed_px": 0,
+      "mirror": {
+        "enabled": false
+      },
+      "template_folder": "assets/templates/tshirt"
+    },
+    {
+      "id": "tiles",
+      "name": "Tiles",
+      "canvas": {
+        "width_px": 3600,
+        "height_px": 3600,
+        "dpi": 300
+      },
+      "safe_area": {
+        "left_px": 150,
+        "right_px": 150,
+        "top_px": 150,
+        "bottom_px": 150
+      },
+      "bleed_px": 75,
+      "mirror": {
+        "enabled": false
+      },
+      "template_folder": "assets/templates/tiles"
+    },
+    {
+      "id": "keyring",
+      "name": "Keyring",
+      "canvas": {
+        "width_px": 1200,
+        "height_px": 1200,
+        "dpi": 300
+      },
+      "safe_area": {
+        "left_px": 60,
+        "right_px": 60,
+        "top_px": 60,
+        "bottom_px": 60
+      },
+      "bleed_px": 30,
+      "mirror": {
+        "enabled": false
+      },
+      "template_folder": "assets/templates/keyring"
+    },
+    {
+      "id": "mobile_cover",
+      "name": "Mobile Cover",
+      "canvas": {
+        "width_px": 2400,
+        "height_px": 4800,
+        "dpi": 300
+      },
+      "safe_area": {
+        "left_px": 90,
+        "right_px": 90,
+        "top_px": 90,
+        "bottom_px": 90
+      },
+      "bleed_px": 45,
+      "mirror": {
+        "enabled": false
+      },
+      "template_folder": "assets/templates/mobile_cover"
+    }
+  ]
+}
