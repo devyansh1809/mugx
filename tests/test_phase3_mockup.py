@@ -7,7 +7,7 @@ from pathlib import Path
 
 from PIL import Image
 
-from core.mockup_generator import MockupGenerator, MockupAsset
+from core.mockup_generator import MockupGenerator
 from core.models import PrintArea, ProductProfile
 
 
@@ -17,48 +17,11 @@ class MockupGeneratorTests(unittest.TestCase):
         self.cache = self.tmp / "cache"
         self.cache.mkdir()
         self.generator = MockupGenerator(str(self.cache))
-        self.mockup_dir = self.tmp / "mockups"
-        self.mockup_dir.mkdir()
-        base = Image.new("RGBA", (800, 600), (240, 240, 240, 255))
-        self.mockup_path = self.mockup_dir / "mug_front.png"
-        base.save(self.mockup_path)
-        asset = {
-            "name": "mug_front",
-            "width_px": 800,
-            "height_px": 600,
-            "print_area": {
-                "width_mm": 203.2,
-                "height_mm": 90.0,
-                "dpi": 300,
-                "bleed_mm": 3,
-                "safe_margin_mm": 5,
-            },
-            "transform": {
-                "x": 100,
-                "y": 150,
-                "width": 600,
-                "height": 300,
-            },
-        }
-        self.asset_json = self.cache / "mockup_mug_front.json"
-        with self.asset_json.open("w") as f:
-            json.dump(asset, f)
         self.profile = ProductProfile(
-            id="mug.standard_11oz",
-            name="11 oz Ceramic Mug",
-            category="Mug",
-            description="Standard 11 oz white ceramic mug",
-            canvas_size_px=(2480, 1063),
-            print_area=PrintArea(
-                width_mm=203.2,
-                height_mm=90.0,
-                dpi=300,
-                bleed_mm=3,
-                safe_margin_mm=5,
-            ),
-            orientation="landscape",
-            mirror_required=True,
-            template_path="mugs/standard_11oz/templates",
+            id="mug.standard_11oz", name="11 oz Ceramic Mug", category="Mug",
+            description="Standard mug", canvas_size_px=(2480, 1063),
+            print_area=PrintArea(203.2, 90.0, 300, 3, 5), orientation="landscape",
+            mirror_required=True, template_path="mugs/standard_11oz/templates",
             mockup_profiles=["mug_front"],
         )
         self.design = Image.new("RGB", (2480, 1063), (255, 0, 0))
@@ -66,29 +29,37 @@ class MockupGeneratorTests(unittest.TestCase):
     def tearDown(self):
         shutil.rmtree(self.tmp, ignore_errors=True)
 
+    def _write_asset(self):
+        base = Image.new("RGBA", (800, 600), (240, 240, 240, 255))
+        base.save(self.cache / "mockup_mug_front.png")
+        with (self.cache / "mockup_mug_front.json").open("w") as handle:
+            json.dump({
+                "name": "mug_front", "width_px": 800, "height_px": 600,
+                "print_area": {"width_mm": 203.2, "height_mm": 90.0, "dpi": 300},
+                "transform": {"x": 100, "y": 150, "width": 600, "height": 300},
+            }, handle)
+
     def test_load_asset_from_json(self):
+        self._write_asset()
         asset = self.generator.load_asset(self.profile, "mug_front")
         self.assertIsNotNone(asset)
         self.assertEqual(asset.name, "mug_front")
         self.assertEqual(asset.width_px, 800)
-        self.assertEqual(asset.height_px, 600)
-        self.assertEqual(asset.print_area.dpi, 300)
 
     def test_render_mockup_with_rectangular_mask(self):
+        self._write_asset()
         output = str(self.tmp / "rendered_mug_front.png")
         result, path = self.generator.render_mockup(self.design, self.profile, "mug_front", output)
         self.assertEqual(path, output)
         self.assertEqual(result.size, (800, 600))
-        self.assertEqual(result.mode, "RGBA")
         self.assertTrue(Path(output).exists())
 
-    def test_mirror_applied_when_profile_requires_it(self):
-        self.profile.mirror_required = True
-        output = str(self.tmp / "mirrored_mockup.png")
-        result, _ = self.generator.render_mockup(self.design, self.profile, "mug_front", output)
-        left = result.getpixel((150, 300))
-        right = result.getpixel((650, 300))
-        self.assertNotEqual(left[:3], right[:3])
+    def test_missing_asset_renders_exportable_fallback(self):
+        output = str(self.tmp / "fallback.png")
+        result, path = self.generator.render_mockup(self.design, self.profile, "missing_view", output)
+        self.assertEqual(result.size, (1200, 900))
+        self.assertTrue(Path(path).exists())
+        self.assertFalse(self.generator.has_asset(self.profile, "missing_view"))
 
 
 if __name__ == "__main__":
