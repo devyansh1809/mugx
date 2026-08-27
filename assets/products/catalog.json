@@ -1,0 +1,125 @@
+{
+  "schema_version": 1,
+  "products": [
+    {
+      "id": "mug.standard_11oz",
+      "name": "11 oz Ceramic Mug",
+      "category": "Mug",
+      "print_area": {"width_mm": 210, "height_mm": 90, "dpi": 300, "bleed_mm": 3, "safe_margin_mm": 4},
+      "mirror_required": true,
+      "orientation": "landscape",
+      "template_path": "assets/products/mugs/standard_11oz/templates",
+      "mockup_profiles": ["mug_front", "mug_left", "mug_right"],
+      "description": "Standard 11 oz ceramic mug wrap.",
+      "tags": ["mug", "ceramic", "11oz", "wrap"]
+    },
+    {
+      "id": "mug.magic_11oz",
+      "name": "11 oz Magic Mug",
+      "category": "Mug",
+      "print_area": {"width_mm": 210, "height_mm": 90, "dpi": 300, "bleed_mm": 3, "safe_margin_mm": 4},
+      "mirror_required": true,
+      "orientation": "landscape",
+      "template_path": "assets/products/mugs/magic_11oz/templates",
+      "mockup_profiles": ["mug_front", "mug_left"],
+      "description": "Heat-reactive 11 oz mug wrap.",
+      "tags": ["mug", "magic", "11oz"]
+    },
+    {
+      "id": "bottle.steel_600ml",
+      "name": "600 ml Steel Bottle",
+      "category": "Bottle",
+      "print_area": {"width_mm": 220, "height_mm": 150, "dpi": 300, "bleed_mm": 3, "safe_margin_mm": 5},
+      "mirror_required": true,
+      "orientation": "landscape",
+      "template_path": "assets/products/bottles/steel_600ml/templates",
+      "mockup_profiles": ["bottle_front", "bottle_angle"],
+      "description": "Stainless steel bottle wrap.",
+      "tags": ["bottle", "steel", "600ml"]
+    },
+    {
+      "id": "tshirt.a4_front",
+      "name": "T-Shirt A4 Front",
+      "category": "T-Shirt",
+      "print_area": {"width_mm": 210, "height_mm": 297, "dpi": 300, "bleed_mm": 3, "safe_margin_mm": 8},
+      "mirror_required": true,
+      "orientation": "portrait",
+      "template_path": "assets/products/tshirts/a4_front/templates",
+      "mockup_profiles": ["tshirt_front"],
+      "description": "A4 portrait front print for polyester T-shirts.",
+      "tags": ["tshirt", "a4", "front", "portrait"]
+    },
+    {
+      "id": "tshirt.a3_front",
+      "name": "T-Shirt A3 Front",
+      "category": "T-Shirt",
+      "print_area": {"width_mm": 297, "height_mm": 420, "dpi": 300, "bleed_mm": 3, "safe_margin_mm": 10},
+      "mirror_required": true,
+      "orientation": "portrait",
+      "template_path": "assets/products/tshirts/a3_front/templates",
+      "mockup_profiles": ["tshirt_front"],
+      "description": "A3 portrait front print for larger T-shirt artwork.",
+      "tags": ["tshirt", "a3", "front", "portrait"]
+    },
+    {
+      "id": "tile.square_6in",
+      "name": "6 inch Square Tile",
+      "category": "Tile",
+      "print_area": {"width_mm": 152.4, "height_mm": 152.4, "dpi": 300, "bleed_mm": 3, "safe_margin_mm": 3},
+      "mirror_required": false,
+      "orientation": "square",
+      "template_path": "assets/products/tiles/square_6in/templates",
+      "mockup_profiles": ["tile_front"],
+      "description": "6 inch ceramic photo tile.",
+      "tags": ["tile", "square", "6in", "ceramic"]
+    },
+    {
+      "id": "cushion.square_16in",
+      "name": "16 inch Cushion Cover",
+      "category": "Cushion",
+      "print_area": {"width_mm": 406.4, "height_mm": 406.4, "dpi": 300, "bleed_mm": 5, "safe_margin_mm": 12},
+      "mirror_required": true,
+      "orientation": "square",
+      "template_path": "assets/products/cushions/square_16in/templates",
+      "mockup_profiles": ["cushion_front"],
+      "description": "Square polyester cushion cover front print.",
+      "tags": ["cushion", "pillow", "square", "16in"]
+    },
+    {
+      "id": "keyring.round_2in",
+      "name": "2 inch Round Keyring",
+      "category": "Keyring",
+      "print_area": {"width_mm": 50, "height_mm": 50, "dpi": 300, "bleed_mm": 2, "safe_margin_mm": 2},
+      "mirror_required": true,
+      "orientation": "square",
+      "template_path": "assets/products/keyrings/round_2in/templates",
+      "mockup_profiles": ["keyring_round"],
+      "description": "Round two-sided keyring insert.",
+      "tags": ["keyring", "round", "2in"]
+    },
+    {
+      "id": "mobile_cover.iphone_17_pro",
+      "name": "Apple iPhone 17 Pro Cover",
+      "category": "Mobile Cover",
+      "print_area": {"width_mm": 72, "height_mm": 150, "dpi": 300, "bleed_mm": 3, "safe_margin_mm": 4},
+      "mirror_required": false,
+      "orientation": "portrait",
+      "template_path": "assets/products/mobile_covers/apple/iphone_17_pro/templates",
+      "mockup_profiles": ["phone_back_iphone"],
+      "description": "iPhone 17 Pro back-cover print area with camera cutout template.",
+      "tags": ["mobile", "cover", "apple", "iphone", "17pro"]
+    },
+    {
+      "id": "mobile_cover.galaxy_s25_ultra",
+      "name": "Samsung Galaxy S25 Ultra Cover",
+      "category": "Mobile Cover",
+      "print_area": {"width_mm": 77, "height_mm": 162, "dpi": 300, "bleed_mm": 3, "safe_margin_mm": 4},
+      "mirror_required": false,
+      "orientation": "portrait",
+      "template_path": "assets/products/mobile_covers/samsung/galaxy_s25_ultra/templates",
+      "mockup_profiles": ["phone_back_samsung"],
+      "description": "Galaxy S25 Ultra back-cover print area with camera cutout template.",
+      "tags": ["mobile", "cover", "samsung", "galaxy", "s25"]
+    }
+  ]
+}
