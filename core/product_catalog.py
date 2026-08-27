@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Any
 
 from PIL import Image
 
@@ -30,14 +30,17 @@ class ProductCatalog:
             return
         with path.open() as f:
             data = json.load(f)
-        for item in data:
+        items = data if isinstance(data, list) else data.get("products", [])
+        for item in items:
+            if not isinstance(item, dict):
+                continue
             profile = ProductProfile(
-                id=item["id"],
-                name=item["name"],
-                category=item["category"],
+                id=item.get("id", ""),
+                name=item.get("name", ""),
+                category=item.get("category", ""),
                 description=item.get("description", ""),
-                canvas_size_px=tuple(item["canvas_size_px"]),
-                print_area=PrintArea(**item["print_area"]),
+                canvas_size_px=tuple(item.get("canvas_size_px", [0, 0])),
+                print_area=PrintArea(**item.get("print_area", {})),
                 orientation=item.get("orientation", "landscape"),
                 mirror_required=item.get("mirror_required", False),
                 template_path=item.get("template_path", ""),
