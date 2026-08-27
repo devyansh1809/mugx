@@ -1,7 +1,10 @@
-"""Integrated Phase 1 workflow for SubliStudio.
+"""Product-aware Phase 1 desktop workflow.
 
-This window is intentionally self-contained and uses the existing core services:
-photo selection -> template auto-fill -> live edit preview/effects -> final print preview/export.
+Phase 1: exact-photo selection, template auto-fill, live manual edit/effect
+preview, and final print preview/export.
+Phase 2: data-driven ProductCatalog category/model selection controls the
+blank canvas, template path, print DPI/mirroring, safe/bleed values, and
+mockup profile information.
 """
 from __future__ import annotations
 
@@ -16,20 +19,24 @@ from PyQt6.QtWidgets import (
     QTabWidget, QGroupBox, QFileDialog, QMessageBox, QSlider,
 )
 
-from core.models import ProductType, TemplateTheme, PhotoItem, TemplateInfo
+from core.models import PhotoItem, TemplateInfo, TemplateTheme
 from core.photo_import_service import PhotoImportService
 from core.template_manager import TemplateManager
-from core.print_exporter import PrintExporter
+from core.print_exporter import PrintExporter, PrintSettings
+from core.mockup_generator import MockupGenerator
+from core.product_catalog import ProductCatalog, ProductProfile, create_blank_canvas
 from ui.photo_selection_dialog import PhotoSelectionDialog
 from ui.live_canvas_preview import LiveCanvasPreview
 from ui.print_settings_dialog import PrintSettingsDialog
 
 APP_DATA = Path.home() / ".subli_studio"
-CACHE = APP_DATA / "phase1_cache"
+CACHE = APP_DATA / "phase12_cache"
 
 
-class Phase1State:
+class DesignState:
     def __init__(self):
+        self.catalog = ProductCatalog()
+        self.profile: Optional[ProductProfile] = None
         self.photos: List[PhotoItem] = []
         self.template: Optional[TemplateInfo] = None
         self.base_canvas: Optional[Image.Image] = None
@@ -39,39 +46,73 @@ class Phase1State:
         self.selected_frame = 0
         self.photo_service = PhotoImportService(str(CACHE / "thumbnails"))
         self.templates = TemplateManager(str(CACHE / "previews"))
+        self.mockups = MockupGenerator(str(CACHE / "mockups"))
         self.printer = PrintExporter()
 
-    def current(self) -> Optional[Image.Image]:
+    def current_canvas(self) -> Optional[Image.Image]:
         return self.canvas if self.canvas is not None else self.base_canvas
+
+    def set_profile(self, profile: ProductProfile) -> None:
+        self.profile = profile
+        self.base_canvas = create_blank_canvas(profile)
+        self.canvas = None
+        self.template = None
+        self.selected_frame = 0
+        self.printer.settings = PrintSettings(
+            dpi=profile.print_area.dpi,
+            mirror_default=profile.mirror_required,
+        )
 
 
 class Phase1Window(QMainWindow):
-    EFFECTS = ("None", "Soft Glow", "Warm Light", "Cool Light", "Spotlight", "Vignette", "Gold Border", "White Border")
+    EFFECTS = (
+        "None", "Soft Glow", "Warm Light", "Cool Light", "Spotlight",
+        "Vignette", "Gold Border", "White Border",
+    )
 
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("SubliStudio — Phase 1")
-        self.resize(1500, 920)
-        self.state = Phase1State()
+        self.setWindowTitle("SubliStudio — Phase 1 + 2")
+        self.resize(1500, 940)
+        self.state = DesignState()
         self._build()
+        self._populate_categories()
 
     def _build(self):
         self.tabs = QTabWidget()
         self.setCentralWidget(self.tabs)
-        self.design_tab = self._build_design()
-        self.edit_tab = self._build_edit()
-        self.print_tab = self._build_print()
-        self.tabs.addTab(self.design_tab, "1. Design")
-        self.tabs.addTab(self.edit_tab, "2. Manual Edit")
-        self.tabs.addTab(self.print_tab, "3. Print Preview")
-        self.tabs.currentChanged.connect(lambda _: self.refresh_all())
-        self.statusBar().showMessage("Phase 1 ready: choose photos, template, then Auto Fill.")
+        self.tabs.addTab(self._build_design_tab(), "1. Design")
+        self.tabs.addTab(self._build_edit_tab(), "2. Manual Edit")
+        self.tabs.addTab(self._build_print_tab(), "3. Print Preview")
+        self.tabs.currentChanged.connect(lambda _index: self.refresh_all())
+        self.statusBar().showMessage("Select a product profile, then choose photos and a template.")
 
-    def _build_design(self):
-        page = QWidget(); root = QVBoxLayout(page)
+    def _build_design_tab(self) -> QWidget:
+        page = QWidget()
+        root = QVBoxLayout(page)
         root.setContentsMargins(16, 12, 16, 12)
-        photos = QGroupBox("A. Select exactly the photos to use")
-        row = QHBoxLayout(photos)
+        root.setSpacing(10)
+
+        product_box = QGroupBox("A. Product Profile")
+        product_grid = QGridLayout(product_box)
+        product_grid.addWidget(QLabel("Category:"), 0, 0)
+        self.category_combo = QComboBox()
+        self.category_combo.currentTextChanged.connect(self._populate_models)
+        product_grid.addWidget(self.category_combo, 0, 1)
+        product_grid.addWidget(QLabel("Product model:"), 0, 2)
+        self.model_combo = QComboBox()
+        self.model_combo.currentIndexChanged.connect(self._on_profile_changed)
+        product_grid.addWidget(self.model_combo, 0, 3)
+        self.new_blank_button = QPushButton("New Blank Product Design")
+        self.new_blank_button.clicked.connect(self._new_blank_design)
+        product_grid.addWidget(self.new_blank_button, 1, 0, 1, 2)
+        self.profile_info = QLabel("Select a product model.")
+        self.profile_info.setWordWrap(True)
+        product_grid.addWidget(self.profile_info, 1, 2, 1, 2)
+        root.addWidget(product_box)
+
+        photos_box = QGroupBox("B. Select Exact Customer Photos")
+        row = QHBoxLayout(photos_box)
         folder = QPushButton("Choose Folder → Select Thumbnails")
         folder.clicked.connect(self.choose_folder)
         row.addWidget(folder)
@@ -81,289 +122,428 @@ class Phase1Window(QMainWindow):
         row.addStretch(1)
         self.photo_label = QLabel("0 photos selected")
         row.addWidget(self.photo_label)
-        root.addWidget(photos)
+        root.addWidget(photos_box)
 
-        tmpl = QGroupBox("B. Choose product template")
-        grid = QGridLayout(tmpl)
+        template_box = QGroupBox("C. Product-Aware Template")
+        template_grid = QGridLayout(template_box)
+        self.template_path_label = QLabel("Template folder: select a product")
+        self.template_path_label.setWordWrap(True)
+        template_grid.addWidget(self.template_path_label, 0, 0, 1, 3)
         self.template_btn = QPushButton("Load Template PSD / Image")
         self.template_btn.clicked.connect(self.choose_template)
-        grid.addWidget(self.template_btn, 0, 0)
-        grid.addWidget(QLabel("Product:"), 0, 1)
-        self.product = QComboBox()
-        for p in ProductType: self.product.addItem(p.value, p)
-        grid.addWidget(self.product, 0, 2)
-        grid.addWidget(QLabel("Theme:"), 1, 1)
-        self.theme = QComboBox()
-        for theme in TemplateTheme: self.theme.addItem(theme.value, theme)
-        grid.addWidget(self.theme, 1, 2)
-        self.template_label = QLabel("No template selected")
-        grid.addWidget(self.template_label, 1, 0)
-        root.addWidget(tmpl)
+        template_grid.addWidget(self.template_btn, 1, 0)
+        template_grid.addWidget(QLabel("Theme:"), 1, 1)
+        self.theme_combo = QComboBox()
+        for theme in TemplateTheme:
+            self.theme_combo.addItem(theme.value, theme)
+        template_grid.addWidget(self.theme_combo, 1, 2)
+        self.template_label = QLabel("No template loaded")
+        template_grid.addWidget(self.template_label, 2, 0, 1, 3)
+        root.addWidget(template_box)
 
-        fill = QGroupBox("C. Auto Fill selected photos")
-        fl = QHBoxLayout(fill)
-        fl.addWidget(QLabel("Use first:"))
-        self.fill_count = QSpinBox(); self.fill_count.setRange(1, 1)
-        fl.addWidget(self.fill_count)
+        fill_box = QGroupBox("D. Auto Fill")
+        fill_row = QHBoxLayout(fill_box)
+        fill_row.addWidget(QLabel("Use selected photos:"))
+        self.fill_count = QSpinBox()
+        self.fill_count.setRange(1, 1)
+        fill_row.addWidget(self.fill_count)
         self.fill_btn = QPushButton("Auto Fill")
         self.fill_btn.clicked.connect(self.auto_fill)
-        fl.addWidget(self.fill_btn)
-        fl.addStretch(1)
-        root.addWidget(fill)
+        fill_row.addWidget(self.fill_btn)
+        fill_row.addStretch(1)
+        root.addWidget(fill_box)
 
-        root.addWidget(QLabel("Current design preview"))
-        self.design_preview = LiveCanvasPreview("Choose photos and a template")
+        root.addWidget(QLabel("Current product design"))
+        self.design_preview = LiveCanvasPreview("Select a product profile to create a production canvas")
         root.addWidget(self.design_preview, 1)
         return page
 
-    def _build_edit(self):
-        page = QWidget(); split = QSplitter(Qt.Orientation.Horizontal)
-        controls = QWidget(); left = QVBoxLayout(controls)
+    def _build_edit_tab(self) -> QWidget:
+        page = QWidget()
+        split = QSplitter(Qt.Orientation.Horizontal)
+        controls = QWidget()
+        left = QVBoxLayout(controls)
         left.setContentsMargins(16, 12, 12, 12)
 
-        frame_box = QGroupBox("Frame position / crop")
-        fg = QGridLayout(frame_box)
-        fg.addWidget(QLabel("Frame:"), 0, 0)
-        self.frame_no = QSpinBox(); self.frame_no.setRange(1, 1); self.frame_no.valueChanged.connect(self.select_frame)
-        fg.addWidget(self.frame_no, 0, 1)
-        fg.addWidget(QLabel("Scale:"), 1, 0)
-        self.scale = QDoubleSpinBox(); self.scale.setRange(0.5, 2.5); self.scale.setValue(1.0); self.scale.setSingleStep(0.05); self.scale.valueChanged.connect(self.preview_frame)
-        fg.addWidget(self.scale, 1, 1)
-        fg.addWidget(QLabel("Move X:"), 2, 0)
-        self.offset_x = QSpinBox(); self.offset_x.setRange(-500, 500); self.offset_x.valueChanged.connect(self.preview_frame)
-        fg.addWidget(self.offset_x, 2, 1)
-        fg.addWidget(QLabel("Move Y:"), 3, 0)
-        self.offset_y = QSpinBox(); self.offset_y.setRange(-500, 500); self.offset_y.valueChanged.connect(self.preview_frame)
-        fg.addWidget(self.offset_y, 3, 1)
+        frame_box = QGroupBox("Photo Frame Position / Crop")
+        grid = QGridLayout(frame_box)
+        grid.addWidget(QLabel("Frame:"), 0, 0)
+        self.frame_spin = QSpinBox()
+        self.frame_spin.setRange(1, 1)
+        self.frame_spin.valueChanged.connect(self._select_frame)
+        grid.addWidget(self.frame_spin, 0, 1)
+        grid.addWidget(QLabel("Scale:"), 1, 0)
+        self.scale_spin = QDoubleSpinBox()
+        self.scale_spin.setRange(0.5, 2.5)
+        self.scale_spin.setValue(1.0)
+        self.scale_spin.setSingleStep(0.05)
+        self.scale_spin.valueChanged.connect(self._preview_frame)
+        grid.addWidget(self.scale_spin, 1, 1)
+        grid.addWidget(QLabel("Move X:"), 2, 0)
+        self.x_spin = QSpinBox()
+        self.x_spin.setRange(-500, 500)
+        self.x_spin.valueChanged.connect(self._preview_frame)
+        grid.addWidget(self.x_spin, 2, 1)
+        grid.addWidget(QLabel("Move Y:"), 3, 0)
+        self.y_spin = QSpinBox()
+        self.y_spin.setRange(-500, 500)
+        self.y_spin.valueChanged.connect(self._preview_frame)
+        grid.addWidget(self.y_spin, 3, 1)
         apply_frame = QPushButton("Apply Frame Change")
-        apply_frame.clicked.connect(self.apply_frame)
-        fg.addWidget(apply_frame, 4, 0, 1, 2)
+        apply_frame.clicked.connect(self._apply_frame)
+        grid.addWidget(apply_frame, 4, 0, 1, 2)
         left.addWidget(frame_box)
 
-        background = QGroupBox("Background")
-        bg = QVBoxLayout(background)
-        choose_bg = QPushButton("Choose Background")
-        choose_bg.clicked.connect(self.choose_background)
-        bg.addWidget(choose_bg)
-        bg.addWidget(QLabel("Blur"))
-        self.blur = QSlider(Qt.Orientation.Horizontal); self.blur.setRange(0, 20); self.blur.valueChanged.connect(self.preview_background)
-        bg.addWidget(self.blur)
-        apply_bg = QPushButton("Apply Background")
-        apply_bg.clicked.connect(self.apply_background)
-        bg.addWidget(apply_bg)
-        left.addWidget(background)
-
-        effects = QGroupBox("Box / Light Effect")
-        ef = QVBoxLayout(effects)
-        self.effect = QComboBox(); self.effect.addItems(self.EFFECTS); self.effect.currentTextChanged.connect(self.preview_effect)
-        ef.addWidget(self.effect)
-        ef.addWidget(QLabel("Intensity"))
-        self.intensity = QSlider(Qt.Orientation.Horizontal); self.intensity.setRange(10, 100); self.intensity.setValue(50); self.intensity.valueChanged.connect(self.preview_effect)
-        ef.addWidget(self.intensity)
+        effect_box = QGroupBox("Box / Light Effects")
+        effect_layout = QVBoxLayout(effect_box)
+        self.effect_combo = QComboBox()
+        self.effect_combo.addItems(self.EFFECTS)
+        self.effect_combo.currentTextChanged.connect(self._preview_effect)
+        effect_layout.addWidget(self.effect_combo)
+        effect_layout.addWidget(QLabel("Intensity"))
+        self.effect_intensity = QSlider(Qt.Orientation.Horizontal)
+        self.effect_intensity.setRange(10, 100)
+        self.effect_intensity.setValue(50)
+        self.effect_intensity.valueChanged.connect(self._preview_effect)
+        effect_layout.addWidget(self.effect_intensity)
         apply_effect = QPushButton("Apply Effect")
-        apply_effect.clicked.connect(self.apply_effect)
-        ef.addWidget(apply_effect)
-        reset = QPushButton("Reset Preview")
-        reset.clicked.connect(self.refresh_all)
-        ef.addWidget(reset)
-        left.addWidget(effects)
+        apply_effect.clicked.connect(self._apply_effect)
+        effect_layout.addWidget(apply_effect)
+        left.addWidget(effect_box)
         left.addStretch(1)
-        self.edit_status = QLabel("Live preview: changes are shown before they are applied.")
+        self.edit_status = QLabel("Click a frame in the preview, adjust it, and preview before applying.")
         self.edit_status.setWordWrap(True)
         left.addWidget(self.edit_status)
 
-        viewer = QWidget(); right = QVBoxLayout(viewer)
+        viewer = QWidget()
+        right = QVBoxLayout(viewer)
         right.setContentsMargins(12, 12, 16, 12)
-        right.addWidget(QLabel("Live editing preview — click a frame to select it"))
-        self.edit_preview = LiveCanvasPreview("Auto Fill a design first")
-        self.edit_preview.frame_clicked.connect(self.frame_clicked)
+        right.addWidget(QLabel("Live Manual Edit Preview"))
+        self.edit_preview = LiveCanvasPreview("Load and Auto Fill a template first")
+        self.edit_preview.frame_clicked.connect(self._click_frame)
         right.addWidget(self.edit_preview, 1)
-        split.addWidget(controls); split.addWidget(viewer); split.setSizes([390, 1000])
-        layout = QVBoxLayout(page); layout.setContentsMargins(0, 0, 0, 0); layout.addWidget(split)
+        split.addWidget(controls)
+        split.addWidget(viewer)
+        split.setSizes([390, 1010])
+        layout = QVBoxLayout(page)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.addWidget(split)
         return page
 
-    def _build_print(self):
-        page = QWidget(); split = QSplitter(Qt.Orientation.Horizontal)
-        controls = QWidget(); left = QVBoxLayout(controls); left.setContentsMargins(16, 12, 12, 12)
-        mirror = QGroupBox("Mirror settings")
-        ml = QVBoxLayout(mirror)
-        self.mirror_primary = QCheckBox("Mirror primary design"); self.mirror_primary.setChecked(True); self.mirror_primary.toggled.connect(self.refresh_print)
-        self.mirror_extra = QCheckBox("Mirror extra design"); self.mirror_extra.toggled.connect(self.refresh_print)
-        ml.addWidget(self.mirror_primary); ml.addWidget(self.mirror_extra); left.addWidget(mirror)
-        extra = QGroupBox("Optional extra design")
-        el = QVBoxLayout(extra)
-        choose = QPushButton("Choose Extra Design")
-        choose.clicked.connect(self.choose_extra)
-        el.addWidget(choose)
-        self.rotate_extra = QCheckBox("Rotate extra design 90°"); self.rotate_extra.toggled.connect(self.refresh_print)
-        el.addWidget(self.rotate_extra); left.addWidget(extra)
+    def _build_print_tab(self) -> QWidget:
+        page = QWidget()
+        split = QSplitter(Qt.Orientation.Horizontal)
+        controls = QWidget()
+        left = QVBoxLayout(controls)
+        left.setContentsMargins(16, 12, 12, 12)
+
+        profile_box = QGroupBox("Selected Product Print Rule")
+        profile_layout = QVBoxLayout(profile_box)
+        self.print_profile_label = QLabel("No product selected")
+        self.print_profile_label.setWordWrap(True)
+        profile_layout.addWidget(self.print_profile_label)
+        left.addWidget(profile_box)
+
+        mirror_box = QGroupBox("Mirror Settings")
+        mirror_layout = QVBoxLayout(mirror_box)
+        self.primary_mirror = QCheckBox("Mirror primary design")
+        self.primary_mirror.toggled.connect(self.refresh_print)
+        self.extra_mirror = QCheckBox("Mirror extra design")
+        self.extra_mirror.toggled.connect(self.refresh_print)
+        mirror_layout.addWidget(self.primary_mirror)
+        mirror_layout.addWidget(self.extra_mirror)
+        left.addWidget(mirror_box)
+
         settings = QPushButton("Paper / DPI Settings")
-        settings.clicked.connect(self.open_settings)
+        settings.clicked.connect(self._open_print_settings)
         left.addWidget(settings)
-        export = QPushButton("Export This Final Preview")
-        export.clicked.connect(self.export_print)
+        export = QPushButton("Export Final Preview as PNG + PDF")
+        export.clicked.connect(self._export_print)
         left.addWidget(export)
         left.addStretch(1)
-        self.print_status = QLabel("This preview is the same print sheet used for export.")
-        self.print_status.setWordWrap(True); left.addWidget(self.print_status)
-        viewer = QWidget(); right = QVBoxLayout(viewer); right.setContentsMargins(12, 12, 16, 12)
-        right.addWidget(QLabel("Final print preview"))
-        self.print_preview = LiveCanvasPreview("Auto Fill and edit a design first")
+        self.print_status = QLabel("This preview uses the same renderer as final export.")
+        self.print_status.setWordWrap(True)
+        left.addWidget(self.print_status)
+
+        viewer = QWidget()
+        right = QVBoxLayout(viewer)
+        right.setContentsMargins(12, 12, 16, 12)
+        right.addWidget(QLabel("Final Print Preview"))
+        self.print_preview = LiveCanvasPreview("Select a product and create a design first")
         right.addWidget(self.print_preview, 1)
-        split.addWidget(controls); split.addWidget(viewer); split.setSizes([390, 1000])
-        layout = QVBoxLayout(page); layout.setContentsMargins(0, 0, 0, 0); layout.addWidget(split)
+        split.addWidget(controls)
+        split.addWidget(viewer)
+        split.setSizes([390, 1010])
+        layout = QVBoxLayout(page)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.addWidget(split)
         return page
 
-    def choose_folder(self):
+    def _populate_categories(self) -> None:
+        self.category_combo.blockSignals(True)
+        self.category_combo.clear()
+        self.category_combo.addItems(self.state.catalog.categories())
+        self.category_combo.blockSignals(False)
+        self._populate_models(self.category_combo.currentText())
+
+    def _populate_models(self, category: str) -> None:
+        self.model_combo.blockSignals(True)
+        self.model_combo.clear()
+        for profile in self.state.catalog.by_category(category):
+            self.model_combo.addItem(profile.name, profile.id)
+        self.model_combo.blockSignals(False)
+        self._on_profile_changed()
+
+    def _on_profile_changed(self) -> None:
+        profile_id = self.model_combo.currentData()
+        if not profile_id:
+            return
+        profile = self.state.catalog.get(profile_id)
+        self.state.set_profile(profile)
+        width, height = profile.canvas_size_px
+        self.profile_info.setText(
+            f"{profile.description}\nCanvas: {width} × {height} px | "
+            f"{profile.print_area.width_mm} × {profile.print_area.height_mm} mm @ {profile.print_area.dpi} DPI | "
+            f"Bleed {profile.print_area.bleed_mm} mm | Safe margin {profile.print_area.safe_margin_mm} mm | "
+            f"Mirror default: {'On' if profile.mirror_required else 'Off'}"
+        )
+        self.template_path_label.setText(f"Compatible template folder: {profile.template_path}")
+        self.primary_mirror.blockSignals(True)
+        self.primary_mirror.setChecked(profile.mirror_required)
+        self.primary_mirror.blockSignals(False)
+        mockups = ', '.join(profile.mockup_profiles) or 'No mockup profile assigned'
+        self.print_profile_label.setText(
+            f"{profile.name}\nDPI: {profile.print_area.dpi}\n"
+            f"Mirror default: {'On' if profile.mirror_required else 'Off'}\n"
+            f"Mockup profiles: {mockups}"
+        )
+        self.frame_spin.setRange(1, 1)
+        self.refresh_all()
+        self.statusBar().showMessage(f"Selected {profile.name}. You may create a blank design or load a compatible template.")
+
+    def _new_blank_design(self) -> None:
+        if not self.state.profile:
+            return
+        self.state.base_canvas = create_blank_canvas(self.state.profile)
+        self.state.canvas = self.state.base_canvas.copy()
+        self.state.template = None
+        self.refresh_all()
+        self.statusBar().showMessage("Created blank product-sized design canvas.")
+
+    def choose_folder(self) -> None:
         folder = QFileDialog.getExistingDirectory(self, "Choose photo folder", self.state.photo_service.get_last_folder() or "")
-        if not folder: return
+        if not folder:
+            return
         self.state.photo_service.save_last_folder(folder)
-        candidates = self.state.photo_service.scan_folder(folder)
-        self.select_photos(candidates)
+        self._select_photos(self.state.photo_service.scan_folder(folder))
 
-    def choose_files(self):
-        paths, _ = QFileDialog.getOpenFileNames(self, "Choose image files", "", "Images (*.jpg *.jpeg *.png *.webp *.bmp *.tif *.tiff *.gif *.heic *.heif)")
-        candidates = [PhotoItem(p, f"{i+1:02d}", i) for i, p in enumerate(paths)]
-        self.select_photos(candidates)
+    def choose_files(self) -> None:
+        paths, _ = QFileDialog.getOpenFileNames(
+            self, "Choose image files", "",
+            "Images (*.jpg *.jpeg *.png *.webp *.bmp *.tif *.tiff *.gif *.heic *.heif)",
+        )
+        self._select_photos([PhotoItem(path, f"{index + 1:02d}", index) for index, path in enumerate(paths)])
 
-    def select_photos(self, candidates):
+    def _select_photos(self, candidates: List[PhotoItem]) -> None:
         if not candidates:
-            QMessageBox.warning(self, "No photos", "No supported photos were selected."); return
+            QMessageBox.warning(self, "No photos", "No supported photos were selected.")
+            return
         dialog = PhotoSelectionDialog(candidates, self.state.photo_service, self)
         if dialog.exec():
             self.state.photos = dialog.selected_photos()
-            self.photo_label.setText(f"{len(self.state.photos)} photo(s) selected")
+            self.photo_label.setText(f"{len(self.state.photos)} selected photo(s)")
             self.fill_count.setRange(1, max(1, len(self.state.photos)))
             self.fill_count.setValue(len(self.state.photos))
 
-    def choose_template(self):
-        path, _ = QFileDialog.getOpenFileName(self, "Choose template", "", "Templates (*.psd *.psb *.png *.jpg *.jpeg *.tiff)")
-        if not path: return
-        info, preview = self.state.templates.load_template(path, self.product.currentData(), self.theme.currentData())
-        if not info or not preview:
-            QMessageBox.critical(self, "Template error", "Could not load the template."); return
+    def choose_template(self) -> None:
+        start_dir = self.state.profile.template_path if self.state.profile else ""
+        path, _ = QFileDialog.getOpenFileName(
+            self, "Choose product template", start_dir,
+            "Templates (*.psd *.psb *.png *.jpg *.jpeg *.tiff)",
+        )
+        if not path:
+            return
+        profile = self.state.profile
+        info, preview_path = self.state.templates.load_template(path, self._legacy_product_type(profile), self.theme_combo.currentData())
+        if not info or not preview_path:
+            QMessageBox.critical(self, "Template error", "Could not load this template.")
+            return
         self.state.template = info
-        self.state.base_canvas = Image.open(preview).convert("RGBA")
+        self.state.base_canvas = Image.open(preview_path).convert("RGBA")
         self.state.canvas = None
-        self.template_label.setText(f"{info.display_name} — {info.frame_count} frame(s)")
-        for spin in [self.frame_no]: spin.setRange(1, max(1, info.frame_count))
+        self.template_label.setText(f"Loaded {info.display_name}: {info.frame_count} frame(s)")
+        self.frame_spin.setRange(1, max(1, info.frame_count))
         self.refresh_all()
 
-    def auto_fill(self):
+    @staticmethod
+    def _legacy_product_type(profile: Optional[ProductProfile]):
+        from core.models import ProductType
+        mapping = {
+            "Mug": ProductType.MUG,
+            "Bottle": ProductType.BOTTLE,
+            "T-Shirt": ProductType.TSHIRT,
+            "Tile": ProductType.TILE,
+            "Cushion": ProductType.CUSHION,
+            "Keyring": ProductType.KEYRING_ROUND,
+            "Mobile Cover": ProductType.MOBILE_COVER,
+        }
+        return mapping.get(profile.category if profile else "Mug", ProductType.MUG)
+
+    def auto_fill(self) -> None:
         if not self.state.template or not self.state.base_canvas or not self.state.photos:
-            QMessageBox.warning(self, "Missing input", "Select photos and a template first."); return
+            QMessageBox.warning(self, "Missing input", "Select photos and a product template first.")
+            return
         try:
-            self.state.canvas = self.state.templates.fill_frames(self.state.template, self.state.base_canvas, self.state.photos[:self.fill_count.value()])
+            self.state.canvas = self.state.templates.fill_frames(
+                self.state.template, self.state.base_canvas,
+                self.state.photos[:self.fill_count.value()],
+            )
             self.refresh_all()
-            self.statusBar().showMessage("Auto Fill complete. Use Manual Edit for live adjustments.")
+            self.statusBar().showMessage("Auto Fill complete. Use Manual Edit to refine the selected frames.")
         except Exception as exc:
             QMessageBox.critical(self, "Auto Fill error", str(exc))
 
-    def frame_clicked(self, index):
-        self.frame_no.setValue(index + 1)
+    def _click_frame(self, index: int) -> None:
+        self.frame_spin.setValue(index + 1)
 
-    def select_frame(self):
-        if not self.state.template: return
-        i = self.frame_no.value() - 1
-        self.state.selected_frame = i
-        frame = self.state.template.frames[i]
-        for widget, value in [(self.scale, frame.photo_scale), (self.offset_x, frame.photo_offset_x), (self.offset_y, frame.photo_offset_y)]:
-            widget.blockSignals(True); widget.setValue(value); widget.blockSignals(False)
+    def _select_frame(self) -> None:
+        if not self.state.template:
+            return
+        index = self.frame_spin.value() - 1
+        self.state.selected_frame = index
+        frame = self.state.template.frames[index]
+        for widget, value in ((self.scale_spin, frame.photo_scale), (self.x_spin, frame.photo_offset_x), (self.y_spin, frame.photo_offset_y)):
+            widget.blockSignals(True)
+            widget.setValue(value)
+            widget.blockSignals(False)
         self.refresh_edit()
 
-    def _require_canvas(self):
-        if not self.state.template or self.state.current() is None:
-            QMessageBox.warning(self, "No design", "Auto Fill a template first."); return False
+    def _require_template_design(self) -> bool:
+        if not self.state.template or not self.state.base_canvas:
+            QMessageBox.warning(self, "No template design", "Load a template and use Auto Fill first.")
+            return False
         return True
 
-    def preview_frame(self):
-        if not self._require_canvas(): return
-        i = self.frame_no.value() - 1; f = self.state.template.frames[i]
-        original = (f.photo_scale, f.photo_offset_x, f.photo_offset_y)
-        f.photo_scale, f.photo_offset_x, f.photo_offset_y = self.scale.value(), self.offset_x.value(), self.offset_y.value()
-        mapping = {n: frame.photo_index for n, frame in enumerate(self.state.template.frames) if frame.photo_index is not None}
-        preview = self.state.templates.fill_frames(self.state.template, self.state.base_canvas, self.state.photos, mapping)
-        f.photo_scale, f.photo_offset_x, f.photo_offset_y = original
-        self.edit_preview.set_canvas(preview, self.state.template.frames, i)
-        self.edit_status.setText("Preview only. Click Apply Frame Change to keep it.")
+    def _render_frame(self, apply: bool) -> Optional[Image.Image]:
+        if not self._require_template_design():
+            return None
+        index = self.frame_spin.value() - 1
+        frame = self.state.template.frames[index]
+        original = (frame.photo_scale, frame.photo_offset_x, frame.photo_offset_y)
+        frame.photo_scale = self.scale_spin.value()
+        frame.photo_offset_x = self.x_spin.value()
+        frame.photo_offset_y = self.y_spin.value()
+        mapping = {i: item.photo_index for i, item in enumerate(self.state.template.frames) if item.photo_index is not None}
+        rendered = self.state.templates.fill_frames(self.state.template, self.state.base_canvas, self.state.photos, mapping)
+        if not apply:
+            frame.photo_scale, frame.photo_offset_x, frame.photo_offset_y = original
+        else:
+            self.state.canvas = rendered
+        return rendered
 
-    def apply_frame(self):
-        if not self._require_canvas(): return
-        f = self.state.template.frames[self.frame_no.value()-1]
-        f.photo_scale, f.photo_offset_x, f.photo_offset_y = self.scale.value(), self.offset_x.value(), self.offset_y.value()
-        mapping = {n: frame.photo_index for n, frame in enumerate(self.state.template.frames) if frame.photo_index is not None}
-        self.state.canvas = self.state.templates.fill_frames(self.state.template, self.state.base_canvas, self.state.photos, mapping)
-        self.edit_status.setText("Frame change applied."); self.refresh_all()
+    def _preview_frame(self) -> None:
+        preview = self._render_frame(apply=False)
+        if preview is not None:
+            self.edit_preview.set_canvas(preview, self.state.template.frames, self.state.selected_frame)
+            self.edit_status.setText("Frame preview only. Click Apply Frame Change to keep it.")
 
-    def choose_background(self):
-        path, _ = QFileDialog.getOpenFileName(self, "Choose background", "", "Images (*.png *.jpg *.jpeg *.webp)")
-        if path: self.state.background_path = path; self.preview_background()
+    def _apply_frame(self) -> None:
+        if self._render_frame(apply=True) is not None:
+            self.edit_status.setText("Frame change applied.")
+            self.refresh_all()
 
-    def preview_background(self):
-        if not self._require_canvas() or not self.state.background_path: return
-        preview = self.state.templates.change_background_with_preview(self.state.current(), self.state.background_path, self.blur.value())
-        self.edit_preview.set_canvas(preview, self.state.template.frames, self.state.selected_frame)
-        self.edit_status.setText("Background preview only. Click Apply Background to keep it.")
-
-    def apply_background(self):
-        if not self._require_canvas() or not self.state.background_path: return
-        self.state.canvas = self.state.templates.change_background_with_preview(self.state.current(), self.state.background_path, self.blur.value())
-        self.edit_status.setText("Background applied."); self.refresh_all()
-
-    def effect_image(self, image):
-        name = self.effect.currentText(); opacity = self.intensity.value() / 100.0
-        result = image.convert("RGBA").copy(); w, h = result.size
-        if name == "None": return result
-        layer = Image.new("RGBA", (w, h), (0,0,0,0)); d = ImageDraw.Draw(layer)
+    def _effect_canvas(self, source: Image.Image) -> Image.Image:
+        name = self.effect_combo.currentText()
+        amount = self.effect_intensity.value() / 100.0
+        result = source.convert("RGBA").copy()
+        width, height = result.size
+        if name == "None":
+            return result
+        layer = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+        draw = ImageDraw.Draw(layer)
         if name == "Soft Glow":
-            d.ellipse((-w//4,-h//4,w*5//4,h*5//4), fill=(255,255,255,int(95*opacity))); layer = layer.filter(ImageFilter.GaussianBlur(max(5, min(w,h)//12)))
-        elif name == "Warm Light": d.rectangle((0,0,w,h), fill=(255,155,60,int(100*opacity)))
-        elif name == "Cool Light": d.rectangle((0,0,w,h), fill=(70,165,255,int(90*opacity)))
+            draw.ellipse((-width // 4, -height // 4, width * 5 // 4, height * 5 // 4), fill=(255, 255, 255, round(95 * amount)))
+            layer = layer.filter(ImageFilter.GaussianBlur(max(5, min(width, height) // 12)))
+        elif name == "Warm Light":
+            draw.rectangle((0, 0, width, height), fill=(255, 155, 60, round(100 * amount)))
+        elif name == "Cool Light":
+            draw.rectangle((0, 0, width, height), fill=(70, 165, 255, round(90 * amount)))
         elif name == "Spotlight":
-            d.ellipse((w//4,h//6,w*3//4,h*5//6), fill=(255,255,220,int(145*opacity))); layer = layer.filter(ImageFilter.GaussianBlur(max(8,min(w,h)//10)))
-        elif name == "Vignette": d.rectangle((5,5,w-6,h-6), outline=(0,0,0,int(185*opacity)), width=max(8,min(w,h)//10))
-        elif name == "Gold Border": d.rectangle((5,5,w-6,h-6), outline=(230,180,35,255), width=max(4,int(15*opacity)))
-        elif name == "White Border": d.rectangle((5,5,w-6,h-6), outline=(255,255,255,255), width=max(4,int(15*opacity)))
+            draw.ellipse((width // 4, height // 6, width * 3 // 4, height * 5 // 6), fill=(255, 255, 220, round(145 * amount)))
+            layer = layer.filter(ImageFilter.GaussianBlur(max(8, min(width, height) // 10)))
+        elif name == "Vignette":
+            draw.rectangle((5, 5, width - 6, height - 6), outline=(0, 0, 0, round(185 * amount)), width=max(8, min(width, height) // 10))
+        elif name == "Gold Border":
+            draw.rectangle((5, 5, width - 6, height - 6), outline=(230, 180, 35, 255), width=max(4, round(15 * amount)))
+        elif name == "White Border":
+            draw.rectangle((5, 5, width - 6, height - 6), outline=(255, 255, 255, 255), width=max(4, round(15 * amount)))
         return Image.alpha_composite(result, layer)
 
-    def preview_effect(self):
-        if not self._require_canvas(): return
-        self.edit_preview.set_canvas(self.effect_image(self.state.current()), self.state.template.frames, self.state.selected_frame)
+    def _preview_effect(self) -> None:
+        source = self.state.current_canvas()
+        if source is None:
+            return
+        self.edit_preview.set_canvas(self._effect_canvas(source), self.state.template.frames if self.state.template else [], self.state.selected_frame)
         self.edit_status.setText("Effect preview only. Click Apply Effect to keep it.")
 
-    def apply_effect(self):
-        if not self._require_canvas(): return
-        self.state.canvas = self.effect_image(self.state.current())
-        self.edit_status.setText("Effect applied."); self.refresh_all()
+    def _apply_effect(self) -> None:
+        source = self.state.current_canvas()
+        if source is None:
+            return
+        self.state.canvas = self._effect_canvas(source)
+        self.edit_status.setText("Effect applied.")
+        self.refresh_all()
 
-    def choose_extra(self):
-        path, _ = QFileDialog.getOpenFileName(self, "Choose extra design", "", "Images (*.png *.jpg *.jpeg)")
-        if path: self.state.extra_design_path = path; self.refresh_print()
+    def _open_print_settings(self) -> None:
+        dialog = PrintSettingsDialog(self, self.state.printer.settings)
+        if dialog.exec():
+            self.state.printer.settings = dialog.get_settings()
+            self.refresh_print()
 
-    def open_settings(self):
-        d = PrintSettingsDialog(self, self.state.printer.settings)
-        if d.exec(): self.state.printer.settings = d.get_settings(); self.refresh_print()
+    def refresh_edit(self) -> None:
+        self.edit_preview.set_canvas(
+            self.state.current_canvas(),
+            self.state.template.frames if self.state.template else [],
+            self.state.selected_frame,
+        )
 
-    def refresh_edit(self):
-        self.edit_preview.set_canvas(self.state.current(), self.state.template.frames if self.state.template else [], self.state.selected_frame)
-
-    def refresh_print(self):
-        if not self.state.current(): self.print_preview.set_canvas(None); return
-        extra = Image.open(self.state.extra_design_path).convert("RGB") if self.state.extra_design_path else None
-        sheet = self.state.printer.build_print_sheet(self.state.current(), self.mirror_primary.isChecked(), self.mirror_extra.isChecked(), extra, self.rotate_extra.isChecked())
+    def refresh_print(self) -> None:
+        source = self.state.current_canvas()
+        if source is None:
+            self.print_preview.set_canvas(None)
+            return
+        sheet = self.state.printer.build_print_sheet(
+            source,
+            mirror_1=self.primary_mirror.isChecked(),
+            mirror_2=self.extra_mirror.isChecked(),
+        )
         self.print_preview.set_canvas(sheet)
 
-    def refresh_all(self):
-        self.design_preview.set_canvas(self.state.current(), self.state.template.frames if self.state.template else [], self.state.selected_frame)
-        self.refresh_edit(); self.refresh_print()
+    def refresh_all(self) -> None:
+        self.design_preview.set_canvas(
+            self.state.current_canvas(),
+            self.state.template.frames if self.state.template else [],
+            self.state.selected_frame,
+        )
+        self.refresh_edit()
+        self.refresh_print()
 
-    def export_print(self):
-        if not self._require_canvas(): return
+    def _export_print(self) -> None:
+        source = self.state.current_canvas()
+        if source is None:
+            QMessageBox.warning(self, "No design", "Create a blank design or Auto Fill a template first.")
+            return
         folder = QFileDialog.getExistingDirectory(self, "Choose export folder")
-        if not folder: return
-        extra = Image.open(self.state.extra_design_path).convert("RGB") if self.state.extra_design_path else None
-        name = Path(self.state.template.source_path).stem if self.state.template else "design"
+        if not folder:
+            return
+        name = Path(self.state.template.source_path).stem if self.state.template else self.state.profile.id.replace('.', '_')
         try:
-            paths = self.state.printer.export(self.state.current(), folder, name, self.mirror_primary.isChecked(), self.mirror_extra.isChecked(), extra, self.rotate_extra.isChecked(), formats=("png", "pdf"))
-            self.print_status.setText("Exported final preview:\n" + "\n".join(paths))
-        except Exception as exc: QMessageBox.critical(self, "Export error", str(exc))
+            paths = self.state.printer.export(
+                source, folder, name,
+                mirror_1=self.primary_mirror.isChecked(),
+                mirror_2=self.extra_mirror.isChecked(),
+                formats=("png", "pdf"),
+            )
+            self.print_status.setText("Exported the final preview:\n" + "\n".join(paths))
+        except Exception as exc:
+            QMessageBox.critical(self, "Export error", str(exc))
