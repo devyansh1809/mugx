@@ -13,3 +13,5 @@ venv/
 
 # App runtime data
 .subli_studio/
+
+.DS_Store
