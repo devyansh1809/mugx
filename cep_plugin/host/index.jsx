@@ -1,277 +1,285 @@
-#target photoshop
+/* global $, File, Folder, app, Document, Layer, SmartObject, UnitValue */
 
-function escapeJsonString(value) {
-    return String(value)
-        .replace(/\\/g, "\\\\")
-        .replace(/"/g, '\\"')
-        .replace(/\r/g, "\\r")
-        .replace(/\n/g, "\\n");
-}
+(function () {
+  'use strict';
 
-function pingPhotoshop() {
-    try {
-        return '{"success":true,"version":"' +
-            escapeJsonString(app.version) +
-            '","name":"' +
-            escapeJsonString(app.name) +
-            '"}';
-    } catch (e) {
-        return '{"success":false,"error":"' +
-            escapeJsonString(e) +
-            '"}';
+  // Resolve extension root (folder containing index.jsx)
+  var extensionRoot = (function () {
+    var scriptPath = $.fileName;
+    var f = new File(scriptPath);
+    return f.parent.parent; // host/ -> cep_plugin/
+  })();
+
+  // ---------- JSON helpers ----------
+
+  function readJSON(relativePath) {
+    var fullPath = new File(extensionRoot + '/' + relativePath);
+    if (!fullPath.exists) {
+      throw new Error('JSON file not found: ' + fullPath.fsName);
     }
-}
+    fullPath.open('r');
+    var content = fullPath.read();
+    fullPath.close();
+    return JSON.parse(content);
+  }
 
-function getPhotoshopInfo() {
-    try {
-        var output = '{"success":true';
-        output += ',"version":"' + escapeJsonString(app.version) + '"';
-        output += ',"name":"' + escapeJsonString(app.name) + '"';
-        output += ',"documents":' + app.documents.length;
+  var _catalog = null;
+  var _registry = null;
 
-        if (app.documents.length > 0) {
-            var doc = app.activeDocument;
-            output += ',"document":"' + escapeJsonString(doc.name) + '"';
-            output += ',"widthPx":' + doc.width.as("px");
-            output += ',"heightPx":' + doc.height.as("px");
-            output += ',"resolution":' + doc.resolution;
-        }
-
-        output += '}';
-        return output;
-    } catch (e) {
-        return '{"success":false,"error":"' +
-            escapeJsonString(e) +
-            '"}';
+  function ensureCatalog() {
+    if (!_catalog) {
+      _catalog = readJSON('assets/products/catalog.json');
     }
-}
+    return _catalog;
+  }
 
-function getDocumentInfo() {
-    try {
-        if (app.documents.length === 0) {
-            return '{"success":false,"error":"No document open"}';
-        }
-
-        var doc = app.activeDocument;
-
-        return '{"success":true' +
-            ',"name":"' + escapeJsonString(doc.name) + '"' +
-            ',"widthPx":' + doc.width.as("px") +
-            ',"heightPx":' + doc.height.as("px") +
-            ',"resolution":' + doc.resolution +
-            '}';
-    } catch (e) {
-        return '{"success":false,"error":"' +
-            escapeJsonString(e) + '"}';
+  function ensureRegistry() {
+    if (!_registry) {
+      _registry = readJSON('assets/templates/registry.json');
     }
-}
+    return _registry;
+  }
 
-function getLayerList() {
-    try {
-        if (app.documents.length === 0) {
-            return '{"success":false,"error":"No document open"}';
-        }
+  // ---------- Public API ----------
 
-        var doc = app.activeDocument;
-        var output = '{"success":true,"count":' + doc.layers.length + ',"layers":[';
+  var MugXHost = {};
 
-        for (var i = 0; i < doc.layers.length; i++) {
-            if (i > 0) {
-                output += ',';
-            }
+  MugXHost.getProducts = function () {
+    var catalog = ensureCatalog();
+    return catalog.products;
+  };
 
-            output += '{"index":' + i +
-                ',"name":"' + escapeJsonString(doc.layers[i].name) + '"' +
-                ',"visible":' + (doc.layers[i].visible ? 'true' : 'false') +
-                '}';
-        }
-
-        output += ']}';
-        return output;
-    } catch (e) {
-        return '{"success":false,"error":"' +
-            escapeJsonString(e) +
-            '"}';
+  MugXHost.getProduct = function (productId) {
+    var catalog = ensureCatalog();
+    for (var i = 0; i < catalog.products.length; i++) {
+      var p = catalog.products[i];
+      if (p.id === productId) {
+        return p;
+      }
     }
-}
+    return null;
+  };
 
-function addTestLayer(layerName) {
-    try {
-        if (app.documents.length === 0) {
-            return '{"success":false,"error":"No document open"}';
+  MugXHost.getTemplates = function (productId, occasion, frameCount) {
+    var registry = ensureRegistry();
+    var result = [];
+    for (var i = 0; i < registry.templates.length; i++) {
+      var t = registry.templates[i];
+      if (t.product !== productId) {
+        continue;
+      }
+      if (frameCount !== undefined && t.frame_count !== frameCount) {
+        continue;
+      }
+      if (occasion) {
+        var hasOccasion = false;
+        for (var j = 0; j < t.occasions.length; j++) {
+          if (t.occasions[j] === occasion) {
+            hasOccasion = true;
+            break;
+          }
         }
-
-        var doc = app.activeDocument;
-        var layer = doc.artLayers.add();
-        layer.name = layerName || "SubliStudio Test Layer";
-
-        return '{"success":true,"name":"' +
-            escapeJsonString(layer.name) +
-            '","index":' + layer.itemIndex + '}';
-    } catch (e) {
-        return '{"success":false,"error":"' +
-            escapeJsonString(e) +
-            '"}';
+        if (!hasOccasion) {
+          continue;
+        }
+      }
+      result.push(t);
     }
-}
+    return result;
+  };
 
-function getLayerBounds(layerName) {
-    try {
-        if (app.documents.length === 0) {
-            return '{"success":false,"error":"No document open"}';
-        }
+  // ---------- Existing Photoshop bridge functions ----------
 
-        var doc = app.activeDocument;
-        var layer = doc.layers.getByName(layerName);
-        var b = layer.bounds;
+  MugXHost.pingPhotoshop = function () {
+    return {
+      name: app.name,
+      version: app.version,
+      language: app.language
+    };
+  };
 
-        return '{"success":true,"name":"' +
-            escapeJsonString(layer.name) +
-            '","left":' + b[0].as("px") +
-            ',"top":' + b[1].as("px") +
-            ',"right":' + b[2].as("px") +
-            ',"bottom":' + b[3].as("px") +
-            ',"width":' + (b[2].as("px") - b[0].as("px")) +
-            ',"height":' + (b[3].as("px") - b[1].as("px")) +
-            '}';
-    } catch (e) {
-        return '{"success":false,"error":"' +
-            escapeJsonString(e) +
-            '"}';
+  MugXHost.getPhotoshopInfo = function () {
+    return {
+      name: app.name,
+      version: app.version,
+      language: app.language,
+      build: app.buildNumber
+    };
+  };
+
+  MugXHost.getDocumentInfo = function () {
+    if (!app.documents.length) {
+      return null;
     }
-}
+    var doc = app.activeDocument;
+    return {
+      name: doc.name,
+      width: doc.width.as('px'),
+      height: doc.height.as('px'),
+      resolution: doc.resolution.as('px/in'),
+      mode: doc.mode.toString(),
+      layerCount: doc.layers.length
+    };
+  };
 
-function duplicateLayer(layerName, newName) {
-    try {
-        if (app.documents.length === 0) {
-            return '{"success":false,"error":"No document open"}';
-        }
-
-        var doc = app.activeDocument;
-        var source = doc.layers.getByName(layerName);
-        var copy = source.duplicate();
-
-        if (newName && newName !== "") {
-            copy.name = newName;
-        }
-
-        return '{"success":true,"source":"' +
-            escapeJsonString(source.name) +
-            '","copy":"' +
-            escapeJsonString(copy.name) +
-            '"}';
-    } catch (e) {
-        return '{"success":false,"error":"' +
-            escapeJsonString(e) +
-            '"}';
+  MugXHost.getLayerList = function () {
+    if (!app.documents.length) {
+      return [];
     }
-}
-
-function createTestRectangle(layerName, left, top, width, height, red, green, blue) {
-    try {
-        if (app.documents.length === 0) {
-            return '{"success":false,"error":"No document open"}';
-        }
-
-        var doc = app.activeDocument;
-        var layer = doc.artLayers.add();
-        layer.name = layerName || "Test Rectangle";
-
-        var color = new SolidColor();
-        color.rgb.red = red;
-        color.rgb.green = green;
-        color.rgb.blue = blue;
-
-        doc.selection.select([
-            [left, top],
-            [left + width, top],
-            [left + width, top + height],
-            [left, top + height]
-        ]);
-
-        doc.selection.fill(color);
-        doc.selection.deselect();
-
-        return '{"success":true,"name":"' +
-            escapeJsonString(layer.name) +
-            '","left":' + left +
-            ',"top":' + top +
-            ',"width":' + width +
-            ',"height":' + height +
-            '}';
-    } catch (e) {
-        return '{"success":false,"error":"' +
-            escapeJsonString(e) +
-            '"}';
+    var doc = app.activeDocument;
+    var layers = [];
+    for (var i = 0; i < doc.layers.length; i++) {
+      var l = doc.layers[i];
+      layers.push({
+        name: l.name,
+        kind: l.kind.toString(),
+        visible: l.visible,
+        opacity: l.opacity,
+        isBackgroundLayer: l.isBackgroundLayer,
+        locked: l.allLocked || l.positionLocked
+      });
     }
-}
+    return layers;
+  };
 
-function moveLayer(layerName, targetLeft, targetTop) {
-    try {
-        if (app.documents.length === 0) {
-            return '{"success":false,"error":"No document open"}';
-        }
-
-        var doc = app.activeDocument;
-        var layer = doc.layers.getByName(layerName);
-        var bounds = layer.bounds;
-
-        var currentLeft = bounds[0].as("px");
-        var currentTop = bounds[1].as("px");
-
-        layer.translate(
-            targetLeft - currentLeft,
-            targetTop - currentTop
-        );
-
-        return getLayerBounds(layerName);
-    } catch (e) {
-        return '{"success":false,"error":"' +
-            escapeJsonString(e) +
-            '"}';
+  MugXHost.addTestLayer = function () {
+    if (!app.documents.length) {
+      return { error: 'No active document' };
     }
-}
+    var doc = app.activeDocument;
+    var layer = doc.artLayers.add();
+    layer.name = 'test_layer_' + new Date().getTime();
+    return {
+      name: layer.name,
+      id: layer.id
+    };
+  };
 
-function setLayerOpacity(layerName, opacity) {
-    try {
-        if (app.documents.length === 0) {
-            return '{"success":false,"error":"No document open"}';
-        }
-
-        if (opacity < 0 || opacity > 100) {
-            return '{"success":false,"error":"Opacity must be between 0 and 100"}';
-        }
-
-        var layer = app.activeDocument.layers.getByName(layerName);
-        layer.opacity = opacity;
-
-        return '{"success":true,"name":"' +
-            escapeJsonString(layer.name) +
-            '","opacity":' + layer.opacity +
-            '}';
-    } catch (e) {
-        return '{"success":false,"error":"' +
-            escapeJsonString(e) +
-            '"}';
+  MugXHost.getLayerBounds = function (layerName) {
+    if (!app.documents.length) {
+      return null;
     }
-}
-
-function setLayerVisibility(layerName, visible) {
-    try {
-        if (app.documents.length === 0) {
-            return '{"success":false,"error":"No document open"}';
-        }
-
-        var layer = app.activeDocument.layers.getByName(layerName);
-        layer.visible = visible;
-
-        return '{"success":true,"name":"' +
-            escapeJsonString(layer.name) +
-            '","visible":' + (layer.visible ? 'true' : 'false') +
-            '}';
-    } catch (e) {
-        return '{"success":false,"error":"' +
-            escapeJsonString(e) +
-            '"}';
+    var doc = app.activeDocument;
+    var layer = null;
+    for (var i = 0; i < doc.layers.length; i++) {
+      if (doc.layers[i].name === layerName) {
+        layer = doc.layers[i];
+        break;
+      }
     }
-}
+    if (!layer) {
+      return null;
+    }
+    var bounds = layer.bounds;
+    return {
+      left: bounds[0].as('px'),
+      top: bounds[1].as('px'),
+      right: bounds[2].as('px'),
+      bottom: bounds[3].as('px')
+    };
+  };
+
+  MugXHost.duplicateLayer = function (layerName) {
+    if (!app.documents.length) {
+      return { error: 'No active document' };
+    }
+    var doc = app.activeDocument;
+    var layer = null;
+    for (var i = 0; i < doc.layers.length; i++) {
+      if (doc.layers[i].name === layerName) {
+        layer = doc.layers[i];
+        break;
+      }
+    }
+    if (!layer) {
+      return { error: 'Layer not found: ' + layerName };
+    }
+    var newLayer = layer.duplicate();
+    newLayer.name = layerName + '_copy_' + new Date().getTime();
+    return {
+      name: newLayer.name,
+      id: newLayer.id
+    };
+  };
+
+  MugXHost.createTestRectangle = function () {
+    if (!app.documents.length) {
+      return { error: 'No active document' };
+    }
+    var doc = app.activeDocument;
+    var layer = doc.artLayers.add();
+    layer.name = 'test_rect_' + new Date().getTime();
+    return {
+      layer: layer.name
+    };
+  };
+
+  MugXHost.moveLayer = function (layerName, dx, dy) {
+    if (!app.documents.length) {
+      return { error: 'No active document' };
+    }
+    var doc = app.activeDocument;
+    var layer = null;
+    for (var i = 0; i < doc.layers.length; i++) {
+      if (doc.layers[i].name === layerName) {
+        layer = doc.layers[i];
+        break;
+      }
+    }
+    if (!layer) {
+      return { error: 'Layer not found: ' + layerName };
+    }
+    layer.translate(dx, dy);
+    return {
+      name: layer.name,
+      movedBy: { x: dx, y: dy }
+    };
+  };
+
+  MugXHost.setLayerOpacity = function (layerName, opacity) {
+    if (!app.documents.length) {
+      return { error: 'No active document' };
+    }
+    var doc = app.activeDocument;
+    var layer = null;
+    for (var i = 0; i < doc.layers.length; i++) {
+      if (doc.layers[i].name === layerName) {
+        layer = doc.layers[i];
+        break;
+      }
+    }
+    if (!layer) {
+      return { error: 'Layer not found: ' + layerName };
+    }
+    layer.opacity = opacity;
+    return {
+      name: layer.name,
+      opacity: layer.opacity
+    };
+  };
+
+  MugXHost.setLayerVisibility = function (layerName, visible) {
+    if (!app.documents.length) {
+      return { error: 'No active document' };
+    }
+    var doc = app.activeDocument;
+    var layer = null;
+    for (var i = 0; i < doc.layers.length; i++) {
+      if (doc.layers[i].name === layerName) {
+        layer = doc.layers[i];
+        break;
+      }
+    }
+    if (!layer) {
+      return { error: 'Layer not found: ' + layerName };
+    }
+    layer.visible = !!visible;
+    return {
+      name: layer.name,
+      visible: layer.visible
+    };
+  };
+
+  // Expose globally
+  this.MugXHost = MugXHost;
+}).call(this);
