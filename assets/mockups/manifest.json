@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "license_notice": "Install only assets whose license permits your intended use. Third-party source PNG/PSD files are local-only and must not be committed unless redistribution is explicitly permitted.",
+  "assets": [
+    {"product_id": "mug.standard_11oz", "view_id": "mug_front", "image": "mug_front.png", "metadata": "mug_front.json"},
+    {"product_id": "bottle.steel_600ml", "view_id": "bottle_front", "image": "bottle_front.png", "metadata": "bottle_front.json"},
+    {"product_id": "tshirt.classic_unisex", "view_id": "tshirt_front", "image": "tshirt_front.png", "metadata": "tshirt_front.json"},
+    {"product_id": "tile.square_6in", "view_id": "tile_front", "image": "tile_front.png", "metadata": "tile_front.json"},
+    {"product_id": "cushion.square_16in", "view_id": "cushion_front", "image": "cushion_front.png", "metadata": "cushion_front.json"},
+    {"product_id": "keyring.round_2in", "view_id": "keyring_front", "image": "keyring_front.png", "metadata": "keyring_front.json"},
+    {"product_id": "mobile_cover.iphone_17_pro", "view_id": "mobile_back", "image": "mobile_back.png", "metadata": "mobile_back.json"}
+  ]
+}

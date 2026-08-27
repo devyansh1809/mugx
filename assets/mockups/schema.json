@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SubliStudio Mockup Asset Metadata",
+  "type": "object",
+  "required": ["width_px", "height_px", "print_region"],
+  "properties": {
+    "width_px": {"type": "integer", "minimum": 1},
+    "height_px": {"type": "integer", "minimum": 1},
+    "print_region": {
+      "type": "object",
+      "required": ["mode"],
+      "properties": {
+        "mode": {"enum": ["rectangle", "polygon"]},
+        "x": {"type": "number"}, "y": {"type": "number"},
+        "width": {"type": "number", "exclusiveMinimum": 0}, "height": {"type": "number", "exclusiveMinimum": 0},
+        "points": {"type": "array", "minItems": 3},
+        "surface": {"enum": ["flat", "cylinder"]}, "curve": {"type": "number", "minimum": 0, "maximum": 0.48},
+        "perspective": {"type": "boolean"}
+      }
+    },
+    "texture": {"type": "string"}, "texture_strength": {"type": "number", "minimum": 0, "maximum": 1},
+    "shadow": {"type": "string"}, "highlight": {"type": "string"},
+    "source_psd": {"type": "string"}, "smart_object_layer": {"type": "string"}
+  }
+}

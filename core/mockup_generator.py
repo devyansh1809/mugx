@@ -1,152 +1,146 @@
-"""Phase 3 mockup generation with safe asset fallback rendering."""
+"""Phase 3 renderer for licensed local product mockup assets.
+
+Real production rendering uses local PNG/JSON assets declared in the manifest.
+When they are absent, the generator emits a clearly labelled illustrative
+fallback instead of failing or pretending that it is a product photograph.
+"""
 from __future__ import annotations
 
-import json
 from pathlib import Path
-from typing import Any, Dict, Optional, Tuple
+from typing import Dict, Optional, Tuple
 
-from PIL import Image, ImageDraw, ImageFilter
+from PIL import Image, ImageChops, ImageDraw
 
-from core.models import PrintArea, ProductProfile
-
-
-class MockupAsset:
-    def __init__(self, path: str, name: str, width_px: int, height_px: int,
-                 print_area: PrintArea, transform: Dict[str, Any]):
-        self.path = path
-        self.name = name
-        self.width_px = width_px
-        self.height_px = height_px
-        self.print_area = print_area
-        self.transform = transform
-
-    @classmethod
-    def from_dict(cls, path: str, data: Dict[str, Any]) -> "MockupAsset":
-        area_data = data["print_area"]
-        return cls(
-            path=path,
-            name=data["name"],
-            width_px=int(data["width_px"]),
-            height_px=int(data["height_px"]),
-            print_area=PrintArea(
-                width_mm=float(area_data["width_mm"]),
-                height_mm=float(area_data["height_mm"]),
-                dpi=int(area_data["dpi"]),
-                bleed_mm=float(area_data.get("bleed_mm", 0)),
-                safe_margin_mm=float(area_data.get("safe_margin_mm", 0)),
-            ),
-            transform=data.get("transform", {}),
-        )
+from core.mockup_asset_registry import MockupAssetRecord, MockupAssetRegistry
+from core.models import ProductProfile
 
 
 class MockupGenerator:
-    def __init__(self, cache_dir: str):
+    def __init__(self, cache_dir: str, asset_dir: Optional[str] = None):
         self.cache_dir = Path(cache_dir)
         self.cache_dir.mkdir(parents=True, exist_ok=True)
-        self._assets: Dict[str, MockupAsset] = {}
-
-    def _asset_paths(self, asset_name: str) -> Tuple[Path, Path]:
-        json_path = self.cache_dir / f"mockup_{asset_name}.json"
-        return json_path, json_path.with_suffix(".png")
-
-    def load_asset(self, profile: ProductProfile, asset_name: str) -> Optional[MockupAsset]:
-        key = f"{profile.id}:{asset_name}"
-        if key in self._assets:
-            return self._assets[key]
-        json_path, image_path = self._asset_paths(asset_name)
-        if not json_path.exists() or not image_path.exists():
-            return None
-        with json_path.open(encoding="utf-8") as handle:
-            data = json.load(handle)
-        asset = MockupAsset.from_dict(str(image_path), data)
-        self._assets[key] = asset
-        return asset
+        self.registry = MockupAssetRegistry(asset_dir)
 
     def has_asset(self, profile: ProductProfile, asset_name: str) -> bool:
-        return self.load_asset(profile, asset_name) is not None
+        record = self.registry.record(profile.id, asset_name)
+        return bool(record and record.is_installed and not self.registry.validate_record(record))
 
     def available_assets(self, profile: ProductProfile) -> list[str]:
-        return [name for name in profile.mockup_profiles if self.has_asset(profile, name)]
+        return [view for view in profile.mockup_profiles if self.has_asset(profile, view)]
 
-    def render_mockup(self, design: Image.Image, profile: ProductProfile,
-                      asset_name: str, output_path: Optional[str] = None) -> Tuple[Image.Image, str]:
-        asset = self.load_asset(profile, asset_name)
-        if asset is None:
+    def validation_errors(self, profile: ProductProfile, asset_name: str) -> list[str]:
+        record = self.registry.record(profile.id, asset_name)
+        if record is None:
+            return ["view is not declared in assets/mockups/manifest.json"]
+        return self.registry.validate_record(record)
+
+    def render_mockup(self, design: Image.Image, profile: ProductProfile, asset_name: str,
+                      output_path: Optional[str] = None) -> Tuple[Image.Image, str]:
+        record = self.registry.record(profile.id, asset_name)
+        if record is None or not record.is_installed or self.registry.validate_record(record):
             return self.render_fallback_mockup(design, profile, asset_name, output_path)
-        base = Image.open(asset.path).convert("RGBA")
-        if base.size != (asset.width_px, asset.height_px):
-            base = base.resize((asset.width_px, asset.height_px), Image.Resampling.LANCZOS)
-        placed = self._prepare_design_for_area(design, profile, asset.print_area)
-        transform = asset.transform
-        x = int(transform.get("x", 0))
-        y = int(transform.get("y", 0))
-        width = int(transform.get("width", placed.width))
-        height = int(transform.get("height", placed.height))
-        placed = placed.resize((max(1, width), max(1, height)), Image.Resampling.LANCZOS)
-        mask = self._build_mask(asset, x, y, placed.width, placed.height)
-        overlay = Image.new("RGBA", base.size, (0, 0, 0, 0))
-        overlay.paste(placed, (x, y), placed)
+        result = self._render_production_asset(design, profile, record)
+        destination = Path(output_path) if output_path else self.cache_dir / f"mockup_{profile.id.replace('.', '_')}_{asset_name}.png"
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        result.save(destination)
+        return result, str(destination)
+
+    def _render_production_asset(self, design: Image.Image, profile: ProductProfile,
+                                 record: MockupAssetRecord) -> Image.Image:
+        metadata = record.metadata
+        base = Image.open(record.image_path).convert("RGBA")
+        expected = (int(metadata["width_px"]), int(metadata["height_px"]))
+        if base.size != expected:
+            base = base.resize(expected, Image.Resampling.LANCZOS)
+        placement, origin, mask = self._placement(design, profile, base.size, metadata["print_region"])
+        layer = Image.new("RGBA", base.size, (0, 0, 0, 0))
+        layer.alpha_composite(placement, origin)
         if mask is not None:
-            clipped = Image.new("RGBA", base.size, (0, 0, 0, 0))
-            clipped.paste(overlay, (0, 0), mask)
-            overlay = clipped
-        result = Image.alpha_composite(base, overlay)
-        out_path = output_path or str(self.cache_dir / f"mockup_{profile.id.replace('.', '_')}_{asset_name}.png")
-        Path(out_path).parent.mkdir(parents=True, exist_ok=True)
-        result.save(out_path)
-        return result, out_path
+            layer.putalpha(ImageChops.multiply(layer.getchannel("A"), mask))
+        texture = self._load_optional(record, metadata.get("texture"), base.size)
+        if texture is not None:
+            layer = Image.blend(layer, ImageChops.multiply(layer, texture), float(metadata.get("texture_strength", 0.18)))
+        result = Image.alpha_composite(base, layer)
+        for name in ("shadow", "highlight"):
+            overlay = self._load_optional(record, metadata.get(name), base.size)
+            if overlay is not None:
+                result = Image.alpha_composite(result, overlay)
+        return result
 
-    def render_fallback_mockup(self, design: Image.Image, profile: ProductProfile,
-                               asset_name: str, output_path: Optional[str] = None) -> Tuple[Image.Image, str]:
-        """Create an informative generic preview when a real mockup asset is absent."""
-        canvas = Image.new("RGBA", (1200, 900), (242, 244, 247, 255))
-        draw = ImageDraw.Draw(canvas)
-        draw.rounded_rectangle((120, 75, 1080, 825), radius=44, fill=(224, 229, 236, 255), outline=(168, 178, 190, 255), width=5)
-        is_bottle = "bottle" in asset_name.lower() or "bottle" in profile.category.lower()
-        is_mug = "mug" in asset_name.lower() or "mug" in profile.category.lower()
-        if is_bottle:
-            body = (430, 175, 770, 745)
-            draw.rounded_rectangle(body, radius=85, fill=(235, 238, 241, 255), outline=(105, 115, 125, 255), width=8)
-            draw.rounded_rectangle((495, 112, 705, 215), radius=30, fill=(130, 140, 150, 255), outline=(90, 98, 108, 255), width=7)
-            area = (470, 300, 730, 635)
-        elif is_mug:
-            draw.rounded_rectangle((310, 255, 800, 675), radius=38, fill=(235, 238, 241, 255), outline=(105, 115, 125, 255), width=8)
-            draw.ellipse((745, 335, 970, 585), outline=(105, 115, 125, 255), width=24)
-            area = (355, 310, 755, 620)
-        else:
-            draw.rounded_rectangle((340, 150, 860, 750), radius=34, fill=(235, 238, 241, 255), outline=(105, 115, 125, 255), width=8)
-            area = (390, 225, 810, 670)
-        placed = self._prepare_design_for_box(design, profile, area[2] - area[0], area[3] - area[1])
-        canvas.alpha_composite(placed, (area[0], area[1]))
-        draw = ImageDraw.Draw(canvas)
-        draw.text((150, 98), f"Preview fallback — {profile.name} / {asset_name}", fill=(45, 55, 65, 255))
-        draw.text((150, 790), "Add a matching PNG + JSON asset to enable the production mockup image.", fill=(70, 80, 90, 255))
-        out_path = output_path or str(self.cache_dir / f"fallback_{profile.id.replace('.', '_')}_{asset_name}.png")
-        Path(out_path).parent.mkdir(parents=True, exist_ok=True)
-        canvas.save(out_path)
-        return canvas, out_path
-
-    def _prepare_design_for_area(self, design: Image.Image, profile: ProductProfile, area: PrintArea) -> Image.Image:
-        width = max(1, round(area.width_mm * area.dpi / 25.4))
-        height = max(1, round(area.height_mm * area.dpi / 25.4))
-        return self._prepare_design_for_box(design, profile, width, height)
+    def _placement(self, design: Image.Image, profile: ProductProfile, canvas_size: Tuple[int, int], region: Dict):
+        if region.get("mode", "rectangle") == "polygon":
+            points = [(int(p[0]), int(p[1])) for p in region["points"]]
+            xs, ys = zip(*points)
+            left, top, right, bottom = min(xs), min(ys), max(xs), max(ys)
+            width, height = max(1, right - left), max(1, bottom - top)
+            placed = self._fit_design(design, profile, width, height)
+            mask = Image.new("L", canvas_size, 0)
+            ImageDraw.Draw(mask).polygon(points, fill=255)
+            return placed, (left, top), mask
+        x, y, width, height = (int(region[key]) for key in ("x", "y", "width", "height"))
+        placed = self._fit_design(design, profile, width, height)
+        if region.get("surface") == "cylinder":
+            placed = self._cylinder_wrap(placed, float(region.get("curve", 0.32)))
+        return placed, (x, y), None
 
     @staticmethod
-    def _prepare_design_for_box(design: Image.Image, profile: ProductProfile, width: int, height: int) -> Image.Image:
+    def _fit_design(design: Image.Image, profile: ProductProfile, width: int, height: int) -> Image.Image:
         image = design.convert("RGBA")
         if profile.mirror_required:
             image = image.transpose(Image.Transpose.FLIP_LEFT_RIGHT)
         image.thumbnail((width, height), Image.Resampling.LANCZOS)
-        placed = Image.new("RGBA", (width, height), (255, 255, 255, 0))
-        placed.alpha_composite(image, ((width - image.width) // 2, (height - image.height) // 2))
-        return placed
+        result = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+        result.alpha_composite(image, ((width - image.width) // 2, (height - image.height) // 2))
+        return result
 
     @staticmethod
-    def _build_mask(asset: MockupAsset, x: int, y: int, width: int, height: int) -> Optional[Image.Image]:
-        transform = asset.transform
-        if "polygon" not in transform:
+    def _cylinder_wrap(image: Image.Image, curve: float) -> Image.Image:
+        width, height = image.size
+        source = image.load()
+        result = Image.new("RGBA", image.size, (0, 0, 0, 0))
+        target = result.load()
+        curve = max(0.0, min(0.48, curve))
+        for x in range(width):
+            normalized = (x / max(1, width - 1)) * 2 - 1
+            source_x = max(0, min(width - 1, int(round((normalized + curve * normalized ** 3 + 1) * 0.5 * (width - 1)))))
+            shade = 1.0 - curve * 0.72 * normalized * normalized
+            for y in range(height):
+                r, g, b, a = source[source_x, y]
+                target[x, y] = (int(r * shade), int(g * shade), int(b * shade), a)
+        return result
+
+    @staticmethod
+    def _load_optional(record: MockupAssetRecord, filename: Optional[str], size: Tuple[int, int]) -> Optional[Image.Image]:
+        if not filename:
             return None
-        mask = Image.new("L", (asset.width_px, asset.height_px), 0)
-        points = [(int(px), int(py)) for px, py in transform["polygon"]]
-        ImageDraw.Draw(mask).polygon(points, fill=255)
-        return mask
+        path = record.image_path.parent / filename
+        if not path.is_file():
+            return None
+        image = Image.open(path).convert("RGBA")
+        return image.resize(size, Image.Resampling.LANCZOS) if image.size != size else image
+
+    def render_fallback_mockup(self, design: Image.Image, profile: ProductProfile, asset_name: str,
+                               output_path: Optional[str] = None) -> Tuple[Image.Image, str]:
+        canvas = Image.new("RGBA", (1200, 900), (242, 244, 247, 255))
+        draw = ImageDraw.Draw(canvas)
+        draw.rounded_rectangle((110, 70, 1090, 830), radius=42, fill=(224, 229, 236, 255), outline=(165, 175, 187, 255), width=5)
+        category = profile.category.lower()
+        if "bottle" in category:
+            draw.rounded_rectangle((435, 180, 765, 745), radius=84, fill=(237, 240, 243, 255), outline=(95, 105, 115, 255), width=8)
+            draw.rounded_rectangle((500, 115, 700, 220), radius=28, fill=(132, 142, 152, 255))
+            box = (472, 302, 728, 632)
+        elif "mug" in category:
+            draw.rounded_rectangle((315, 265, 800, 675), radius=38, fill=(237, 240, 243, 255), outline=(95, 105, 115, 255), width=8)
+            draw.ellipse((745, 335, 970, 585), outline=(95, 105, 115, 255), width=24)
+            box = (360, 315, 755, 625)
+        else:
+            draw.rounded_rectangle((345, 155, 855, 750), radius=34, fill=(237, 240, 243, 255), outline=(95, 105, 115, 255), width=8)
+            box = (395, 230, 805, 670)
+        canvas.alpha_composite(self._fit_design(design, profile, box[2] - box[0], box[3] - box[1]), (box[0], box[1]))
+        draw = ImageDraw.Draw(canvas)
+        draw.text((145, 102), f"ILLUSTRATIVE FALLBACK — {profile.name} / {asset_name}", fill=(55, 65, 75, 255))
+        draw.text((145, 790), "Install licensed PNG + JSON asset files to enable production mockup rendering.", fill=(80, 90, 100, 255))
+        destination = Path(output_path) if output_path else self.cache_dir / f"fallback_{profile.id.replace('.', '_')}_{asset_name}.png"
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        canvas.save(destination)
+        return canvas, str(destination)
