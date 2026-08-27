@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SubliStudio CEP</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="container">
+    <header class="header">
+      <h1>SubliStudio CEP</h1>
+      <p class="subtitle">Sublimation Print Design Plugin</p>
+    </header>
+    <div class="status-bar">
+      <span id="status-indicator" class="status-indicator"></span>
+      <span id="status-text">Connecting to Photoshop...</span>
+    </div>
+    <div class="section">
+      <h2>Photoshop Connection Test</h2>
+      <button id="test-btn" class="btn btn-primary">Test Connection</button>
+      <div id="test-result" class="result-box"></div>
+    </div>
+    <nav class="module-nav">
+      <h2>Modules</h2>
+      <ul>
+        <li class="module-item disabled">Sublimation (Phase 2)</li>
+        <li class="module-item disabled">Mobile (Phase 4)</li>
+        <li class="module-item disabled">Manual Edit (Phase 3)</li>
+        <li class="module-item disabled">Text Tools (Phase 3)</li>
+        <li class="module-item disabled">Magic Tools (Phase 7)</li>
+        <li class="module-item disabled">Print Export (Phase 6)</li>
+        <li class="module-item disabled">3D Mockup (Phase 5)</li>
+      </ul>
+    </nav>
+    <footer class="footer">
+      <p>Phase 0: CEP Foundation</p>
+      <p id="version-info">Version 1.0.0</p>
+    </footer>
+  </div>
+  <script src="js/CSInterface.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>

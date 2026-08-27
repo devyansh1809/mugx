@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ExtensionManifest Version="7.0" ExtensionId="com.sublistudio.cep" Version="1.0.0" xmlns="http://www.adobe.com/CSXS/2015/ExtensionManifest">
+  <ExtensionList>
+    <Extension Id="com.sublistudio.cep" Version="1.0.0" />
+  </ExtensionList>
+  <ExecutionEnvironment>
+    <HostList>
+      <Host Name="PHXS" Version="[13.0,99.9]" />
+      <Host Name="PHSP" Version="[13.0,99.9]" />
+    </HostList>
+    <LocaleList>
+      <Locale Code="All" />
+    </LocaleList>
+    <RequiredRuntimeList>
+      <RequiredRuntime Name="CSXS" Version="7.0" />
+    </RequiredRuntimeList>
+  </ExecutionEnvironment>
+  <DispatchInfoList>
+    <Extension Id="com.sublistudio.cep">
+      <DispatchInfo>
+        <Resources>
+          <MainPath>./index.html</MainPath>
+          <ScriptPath>./host/index.jsx</ScriptPath>
+          <CEFCommandLine>
+            <Parameter>--enable-nodejs</Parameter>
+            <Parameter>--mixed-context</Parameter>
+          </CEFCommandLine>
+          <StartOn>
+            <Event>com.adobe.csxs.events.ApplicationInitialized</Event>
+          </StartOn>
+          <Menu>
+            <MenuText>SubliStudio CEP</MenuText>
+            <ContextMenu>
+              <MenuText>SubliStudio CEP</MenuText>
+            </ContextMenu>
+          </Menu>
+        </Resources>
+        <Lifecycle>
+          <AutoVisible>true</AutoVisible>
+        </Lifecycle>
+        <UI>
+          <Type>Panel</Type>
+          <Menu>SubliStudio CEP</Menu>
+          <Geometry>
+            <Size>
+              <Height>600</Height>
+              <Width>350</Width>
+            </Size>
+            <MinSize>
+              <Height>400</Height>
+              <Width>300</Width>
+            </MinSize>
+            <MaxSize>
+              <Height>1200</Height>
+              <Width>800</Width>
+            </MaxSize>
+          </Geometry>
+          <Icons />
+        </UI>
+      </DispatchInfo>
+    </Extension>
+  </DispatchInfoList>
+</ExtensionManifest>

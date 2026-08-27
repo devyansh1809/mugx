@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ExtensionList>
+  <Extension Id="com.sublistudio.cep">
+    <HostList>
+      <Host Name="PHXS" Port="8888" />
+      <Host Name="PHSP" Port="8888" />
+    </HostList>
+  </Extension>
+</ExtensionList>
