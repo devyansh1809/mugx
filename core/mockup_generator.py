@@ -9,9 +9,9 @@ import json
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-from PIL import Image
+from PIL import Image, ImageDraw
 
-from core.models import ProductProfile, PrintArea
+from core.models import PrintArea, ProductProfile
 
 
 class MockupAsset:
@@ -91,7 +91,6 @@ class MockupGenerator:
         transform = asset.transform
         if "polygon" in transform:
             mask = Image.new("L", (asset.width_px, asset.height_px), 0)
-            from PIL import ImageDraw
             draw = ImageDraw.Draw(mask)
             points = [(int(x), int(y)) for x, y in transform["polygon"]]
             draw.polygon(points, fill=255)
@@ -102,7 +101,6 @@ class MockupGenerator:
         mw = int(transform.get("width", w))
         mh = int(transform.get("height", h))
         mask = Image.new("L", (w, h), 0)
-        from PIL import ImageDraw
         draw = ImageDraw.Draw(mask)
         draw.rectangle((x, y, x + mw, y + mh), fill=255)
         return mask
