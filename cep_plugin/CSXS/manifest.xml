@@ -1,22 +1,22 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<ExtensionManifest Version="11.0" ExtensionId="com.mugx.panel" Version="1.0.0" xmlns="http://www.adobe.com/CSXS/2015/ExtensionManifest">
+<ExtensionManifest Version="7.0" ExtensionId="com.sublistudio.cep" Version="1.0.0" xmlns="http://www.adobe.com/CSXS/2015/ExtensionManifest">
   <ExtensionList>
-    <Extension Id="com.mugx.panel" Version="1.0.0" />
+    <Extension Id="com.sublistudio.cep" Version="1.0.0" />
   </ExtensionList>
   <ExecutionEnvironment>
     <HostList>
-      <Host Name="PHXS" Version="[20.0,99.9]" />
-      <Host Name="PHSP" Version="[20.0,99.9]" />
+      <Host Name="PHXS" Version="[13.0,99.9]" />
+      <Host Name="PHSP" Version="[13.0,99.9]" />
     </HostList>
     <LocaleList>
       <Locale Code="All" />
     </LocaleList>
     <RequiredRuntimeList>
-      <RequiredRuntime Name="CSXS" Version="11.0" />
+      <RequiredRuntime Name="CSXS" Version="7.0" />
     </RequiredRuntimeList>
   </ExecutionEnvironment>
   <DispatchInfoList>
-    <Extension Id="com.mugx.panel">
+    <Extension Id="com.sublistudio.cep">
       <DispatchInfo>
         <Resources>
           <MainPath>./index.html</MainPath>
@@ -29,9 +29,9 @@
             <Event>com.adobe.csxs.events.ApplicationInitialized</Event>
           </StartOn>
           <Menu>
-            <MenuText>MugX</MenuText>
+            <MenuText>SubliStudio CEP</MenuText>
             <ContextMenu>
-              <MenuText>MugX</MenuText>
+              <MenuText>SubliStudio CEP</MenuText>
             </ContextMenu>
           </Menu>
         </Resources>
@@ -40,20 +40,11 @@
         </Lifecycle>
         <UI>
           <Type>Panel</Type>
-          <Menu>MugX</Menu>
+          <Menu>SubliStudio CEP</Menu>
           <Geometry>
-            <Size>
-              <Height>600</Height>
-              <Width>350</Width>
-            </Size>
-            <MinSize>
-              <Height>400</Height>
-              <Width>300</Width>
-            </MinSize>
-            <MaxSize>
-              <Height>1200</Height>
-              <Width>800</Width>
-            </MaxSize>
+            <Size><Height>600</Height><Width>350</Width></Size>
+            <MinSize><Height>400</Height><Width>300</Width></MinSize>
+            <MaxSize><Height>1200</Height><Width>800</Width></MaxSize>
           </Geometry>
           <Icons />
         </UI>
