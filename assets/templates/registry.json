@@ -1,0 +1,146 @@
+{
+  "templates": [
+    {
+      "id": "mug_classic_01",
+      "name": "Classic Mug 01",
+      "product": "mug",
+      "occasions": ["birthday", "general"],
+      "frame_count": 1,
+      "psd_path": "assets/templates/mug/classic_01.psd",
+      "frames": [
+        {
+          "name": "frame_01",
+          "shape": "rect",
+          "x_px": 900,
+          "y_px": 300,
+          "width_px": 1800,
+          "height_px": 600,
+          "rotation_deg": 0
+        }
+      ],
+      "background_layer": "background",
+      "overlays": [],
+      "text_layers": []
+    },
+    {
+      "id": "mug_classic_02",
+      "name": "Classic Mug 02",
+      "product": "mug",
+      "occasions": ["birthday", "anniversary", "general"],
+      "frame_count": 2,
+      "psd_path": "assets/templates/mug/classic_02.psd",
+      "frames": [
+        {
+          "name": "frame_01",
+          "shape": "rect",
+          "x_px": 600,
+          "y_px": 300,
+          "width_px": 1000,
+          "height_px": 600,
+          "rotation_deg": 0
+        },
+        {
+          "name": "frame_02",
+          "shape": "rect",
+          "x_px": 2000,
+          "y_px": 300,
+          "width_px": 1000,
+          "height_px": 600,
+          "rotation_deg": 0
+        }
+      ],
+      "background_layer": "background",
+      "overlays": [],
+      "text_layers": []
+    },
+    {
+      "id": "mug_collage_03",
+      "name": "Mug Collage 03",
+      "product": "mug",
+      "occasions": ["birthday", "friendship", "general"],
+      "frame_count": 3,
+      "psd_path": "assets/templates/mug/collage_03.psd",
+      "frames": [
+        {
+          "name": "frame_01",
+          "shape": "rect",
+          "x_px": 500,
+          "y_px": 250,
+          "width_px": 800,
+          "height_px": 700,
+          "rotation_deg": -5
+        },
+        {
+          "name": "frame_02",
+          "shape": "rect",
+          "x_px": 1400,
+          "y_px": 300,
+          "width_px": 800,
+          "height_px": 600,
+          "rotation_deg": 3
+        },
+        {
+          "name": "frame_03",
+          "shape": "rect",
+          "x_px": 2300,
+          "y_px": 250,
+          "width_px": 800,
+          "height_px": 700,
+          "rotation_deg": -2
+        }
+      ],
+      "background_layer": "background",
+      "overlays": ["overlay_pattern_01"],
+      "text_layers": ["text_title"]
+    },
+    {
+      "id": "mug_collage_04",
+      "name": "Mug Collage 04",
+      "product": "mug",
+      "occasions": ["anniversary", "wedding", "general"],
+      "frame_count": 4,
+      "psd_path": "assets/templates/mug/collage_04.psd",
+      "frames": [
+        {
+          "name": "frame_01",
+          "shape": "rect",
+          "x_px": 500,
+          "y_px": 250,
+          "width_px": 700,
+          "height_px": 700,
+          "rotation_deg": 0
+        },
+        {
+          "name": "frame_02",
+          "shape": "rect",
+          "x_px": 1300,
+          "y_px": 250,
+          "width_px": 700,
+          "height_px": 700,
+          "rotation_deg": 0
+        },
+        {
+          "name": "frame_03",
+          "shape": "rect",
+          "x_px": 500,
+          "y_px": 1050,
+          "width_px": 700,
+          "height_px": 700,
+          "rotation_deg": 0
+        },
+        {
+          "name": "frame_04",
+          "shape": "rect",
+          "x_px": 1300,
+          "y_px": 1050,
+          "width_px": 700,
+          "height_px": 700,
+          "rotation_deg": 0
+        }
+      ],
+      "background_layer": "background",
+      "overlays": ["overlay_hearts_01"],
+      "text_layers": ["text_names", "text_date"]
+    }
+  ]
+}
