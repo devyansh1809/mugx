@@ -1,0 +1,343 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://mugx.app/schemas/product_profiles_schema.json",
+  "title": "Product Profiles Schema",
+  "description": "Schema for product catalog JSON file containing product specifications for printing",
+  "type": "object",
+  "required": ["version", "generated", "products"],
+  "properties": {
+    "version": {
+      "type": "string",
+      "description": "Schema version (e.g., '1.0')",
+      "example": "1.0"
+    },
+    "generated": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp when registry was generated"
+    },
+    "products": {
+      "type": "array",
+      "description": "Array of product profile entries",
+      "items": {
+        "$ref": "#/definitions/product"
+      }
+    }
+  },
+  "definitions": {
+    "product": {
+      "type": "object",
+      "required": [
+        "id",
+        "name",
+        "category",
+        "dimensions",
+        "printArea",
+        "dpi",
+        "bleed",
+        "safeArea",
+        "printMirrorRule",
+        "psdTemplatePath",
+        "mockupPath"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique product identifier (e.g., 'mug-11oz-white')",
+          "pattern": "^[a-z0-9-]+$",
+          "example": "mug-11oz-white"
+        },
+        "name": {
+          "type": "string",
+          "description": "Human-readable product name",
+          "example": "11oz White Ceramic Mug"
+        },
+        "description": {
+          "type": "string",
+          "description": "Product description"
+        },
+        "category": {
+          "type": "string",
+          "description": "Product category",
+          "enum": ["mugs", "bottles", "tshirts", "cushions", "tiles", "keyrings", "mobile"],
+          "example": "mugs"
+        },
+        "subcategory": {
+          "type": "string",
+          "description": "Product subcategory/variant",
+          "example": "11oz"
+        },
+        "dimensions": {
+          "type": "object",
+          "description": "Physical product dimensions",
+          "required": ["width", "height", "depth", "unit"],
+          "properties": {
+            "width": {
+              "type": "number",
+              "description": "Product width",
+              "example": 82
+            },
+            "height": {
+              "type": "number",
+              "description": "Product height",
+              "example": 95
+            },
+            "depth": {
+              "type": "number",
+              "description": "Product depth (for 3D objects like bottles)",
+              "example": 82
+            },
+            "diameter": {
+              "type": "number",
+              "description": "Diameter (for cylindrical objects)",
+              "example": 82
+            },
+            "unit": {
+              "type": "string",
+              "description": "Unit of measurement",
+              "enum": ["mm", "cm", "in"],
+              "example": "mm"
+            }
+          }
+        },
+        "printArea": {
+          "type": "object",
+          "description": "Printable area specifications",
+          "required": ["width", "height", "unit"],
+          "properties": {
+            "width": {
+              "type": "number",
+              "description": "Printable width",
+              "example": 203
+            },
+            "height": {
+              "type": "number",
+              "description": "Printable height",
+              "example": 88
+            },
+            "wrapType": {
+              "type": "string",
+              "description": "Wrap type for cylindrical products",
+              "enum": ["full-wrap", "half-wrap", "front-only", "front-back"],
+              "example": "full-wrap"
+            },
+            "unit": {
+              "type": "string",
+              "description": "Unit of measurement",
+              "enum": ["mm", "cm", "in", "px"],
+              "example": "mm"
+            }
+          }
+        },
+        "canvasSize": {
+          "type": "object",
+          "description": "Photoshop canvas size in pixels",
+          "required": ["width", "height"],
+          "properties": {
+            "width": {
+              "type": "integer",
+              "description": "Canvas width in pixels",
+              "example": 2400
+            },
+            "height": {
+              "type": "integer",
+              "description": "Canvas height in pixels",
+              "example": 1038
+            }
+          }
+        },
+        "dpi": {
+          "type": "integer",
+          "description": "Required resolution in dots per inch",
+          "minimum": 150,
+          "maximum": 600,
+          "default": 300,
+          "example": 300
+        },
+        "bleed": {
+          "type": "object",
+          "description": "Bleed area specifications",
+          "required": ["top", "right", "bottom", "left"],
+          "properties": {
+            "top": {
+              "type": "number",
+              "description": "Top bleed in mm",
+              "example": 3
+            },
+            "right": {
+              "type": "number",
+              "description": "Right bleed in mm",
+              "example": 3
+            },
+            "bottom": {
+              "type": "number",
+              "description": "Bottom bleed in mm",
+              "example": 3
+            },
+            "left": {
+              "type": "number",
+              "description": "Left bleed in mm",
+              "example": 3
+            },
+            "unit": {
+              "type": "string",
+              "description": "Unit of measurement",
+              "enum": ["mm", "cm", "in", "px"],
+              "example": "mm"
+            }
+          }
+        },
+        "safeArea": {
+          "type": "object",
+          "description": "Safe area margins (keep important content inside)",
+          "required": ["top", "right", "bottom", "left"],
+          "properties": {
+            "top": {
+              "type": "number",
+              "description": "Top safe margin in mm",
+              "example": 5
+            },
+            "right": {
+              "type": "number",
+              "description": "Right safe margin in mm",
+              "example": 5
+            },
+            "bottom": {
+              "type": "number",
+              "description": "Bottom safe margin in mm",
+              "example": 5
+            },
+            "left": {
+              "type": "number",
+              "description": "Left safe margin in mm",
+              "example": 5
+            },
+            "unit": {
+              "type": "string",
+              "description": "Unit of measurement",
+              "enum": ["mm", "cm", "in", "px"],
+              "example": "mm"
+            }
+          }
+        },
+        "printMirrorRule": {
+          "type": "boolean",
+          "description": "Whether design must be mirrored before printing (for sublimation)",
+          "default": true,
+          "example": true
+        },
+        "printMirrorNote": {
+          "type": "string",
+          "description": "Additional notes about mirroring",
+          "example": "Mirror horizontally for sublimation transfer"
+        },
+        "psdTemplatePath": {
+          "type": "string",
+          "description": "Relative path to base PSD template file",
+          "example": "templates/mugs/11oz-base-template.psd"
+        },
+        "mockupPath": {
+          "type": "string",
+          "description": "Relative path to product mockup image for customer approval",
+          "example": "mockups/mugs/11oz-white-mug-mockup.jpg"
+        },
+        "mockupAngles": {
+          "type": "array",
+          "description": "Multiple mockup angles if available",
+          "items": {
+            "type": "object",
+            "required": ["angle", "path"],
+            "properties": {
+              "angle": {
+                "type": "string",
+                "example": "front"
+              },
+              "path": {
+                "type": "string",
+                "example": "mockups/mugs/11oz-white-mug-front.jpg"
+              }
+            }
+          }
+        },
+        "colorOptions": {
+          "type": "array",
+          "description": "Available color variants",
+          "items": {
+            "type": "string"
+          },
+          "example": ["white", "black", "blue", "red"]
+        },
+        "material": {
+          "type": "string",
+          "description": "Product material",
+          "example": "ceramic"
+        },
+        "weight": {
+          "type": "object",
+          "description": "Product weight",
+          "properties": {
+            "value": {
+              "type": "number",
+              "example": 350
+            },
+            "unit": {
+              "type": "string",
+              "enum": ["g", "kg", "oz", "lb"],
+              "example": "g"
+            }
+          }
+        },
+        "packagingDimensions": {
+          "type": "object",
+          "description": "Packaging box dimensions",
+          "properties": {
+            "length": {
+              "type": "number",
+              "example": 120
+            },
+            "width": {
+              "type": "number",
+              "example": 90
+            },
+            "height": {
+              "type": "number",
+              "example": 100
+            },
+            "unit": {
+              "type": "string",
+              "enum": ["mm", "cm", "in"],
+              "example": "mm"
+            }
+          }
+        },
+        "isActive": {
+          "type": "boolean",
+          "description": "Whether product is currently available",
+          "default": true
+        },
+        "isPremium": {
+          "type": "boolean",
+          "description": "Whether product is premium/paid tier",
+          "default": false
+        },
+        "basePrice": {
+          "type": "number",
+          "description": "Base price in local currency",
+          "example": 250
+        },
+        "tags": {
+          "type": "array",
+          "description": "Search tags",
+          "items": {
+            "type": "string"
+          },
+          "example": ["mug", "ceramic", "11oz", "sublimation"]
+        },
+        "notes": {
+          "type": "string",
+          "description": "Additional production notes"
+        }
+      }
+    }
+  }
+}

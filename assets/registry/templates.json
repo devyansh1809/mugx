@@ -1,0 +1,306 @@
+{
+  "version": "1.0",
+  "generated": "2026-08-28T07:50:00Z",
+  "templates": [
+    {
+      "id": "mug-1photo-birthday-cake-001",
+      "name": "Birthday Cake Mug - Single Photo",
+      "description": "Colorful birthday cake theme with single photo frame",
+      "productCategory": "mugs",
+      "productSubcategory": "11oz",
+      "frameCount": 1,
+      "path": "templates/mugs/1-photo/birthday-cake-mug.psd",
+      "thumbnailPath": "templates/mugs/1-photo/thumbs/birthday-cake-mug-thumb.jpg",
+      "dimensions": {
+        "width": 2400,
+        "height": 1038,
+        "unit": "px"
+      },
+      "dpi": 300,
+      "colorMode": "RGB",
+      "layerNamingContract": {
+        "frames": ["frame_1"],
+        "background": "background",
+        "overlays": ["overlay_cake", "overlay_text", "overlay_balloons"],
+        "safeArea": "safe_area_guide",
+        "bleedArea": "bleed_area_guide"
+      },
+      "theme": "birthday",
+      "occasion": "kids-birthday",
+      "tags": ["birthday", "cake", "kids", "colorful", "balloons"],
+      "isPremium": false,
+      "created": "2026-08-28T07:50:00Z",
+      "updated": "2026-08-28T07:50:00Z"
+    },
+    {
+      "id": "mug-2photo-love-hearts-001",
+      "name": "Love Hearts Mug - Two Photo",
+      "description": "Romantic hearts theme with two photo frames",
+      "productCategory": "mugs",
+      "productSubcategory": "11oz",
+      "frameCount": 2,
+      "path": "templates/mugs/2-photo/love-hearts-mug.psd",
+      "thumbnailPath": "templates/mugs/2-photo/thumbs/love-hearts-mug-thumb.jpg",
+      "dimensions": {
+        "width": 2400,
+        "height": 1038,
+        "unit": "px"
+      },
+      "dpi": 300,
+      "colorMode": "RGB",
+      "layerNamingContract": {
+        "frames": ["frame_1", "frame_2"],
+        "background": "background",
+        "overlays": ["overlay_hearts", "overlay_text"],
+        "safeArea": "safe_area_guide",
+        "bleedArea": "bleed_area_guide"
+      },
+      "theme": "love-romantic",
+      "occasion": "anniversary",
+      "tags": ["love", "hearts", "romantic", "couple", "anniversary"],
+      "isPremium": false,
+      "created": "2026-08-28T07:50:00Z",
+      "updated": "2026-08-28T07:50:00Z"
+    },
+    {
+      "id": "mug-3photo-collage-001",
+      "name": "Photo Collage Mug - Three Photo",
+      "description": "Modern collage layout with three photo frames",
+      "productCategory": "mugs",
+      "productSubcategory": "11oz",
+      "frameCount": 3,
+      "path": "templates/mugs/3-photo/collage-mug.psd",
+      "thumbnailPath": "templates/mugs/3-photo/thumbs/collage-mug-thumb.jpg",
+      "dimensions": {
+        "width": 2400,
+        "height": 1038,
+        "unit": "px"
+      },
+      "dpi": 300,
+      "colorMode": "RGB",
+      "layerNamingContract": {
+        "frames": ["frame_1", "frame_2", "frame_3"],
+        "background": "background",
+        "overlays": ["overlay_frames", "overlay_text"],
+        "safeArea": "safe_area_guide",
+        "bleedArea": "bleed_area_guide"
+      },
+      "theme": "general",
+      "occasion": "family",
+      "tags": ["collage", "multiple-photos", "family", "memories"],
+      "isPremium": false,
+      "created": "2026-08-28T07:50:00Z",
+      "updated": "2026-08-28T07:50:00Z"
+    },
+    {
+      "id": "mug-4photo-grid-001",
+      "name": "Photo Grid Mug - Four Photo",
+      "description": "Classic grid layout with four photo frames",
+      "productCategory": "mugs",
+      "productSubcategory": "11oz",
+      "frameCount": 4,
+      "path": "templates/mugs/4-photo/grid-mug.psd",
+      "thumbnailPath": "templates/mugs/4-photo/thumbs/grid-mug-thumb.jpg",
+      "dimensions": {
+        "width": 2400,
+        "height": 1038,
+        "unit": "px"
+      },
+      "dpi": 300,
+      "colorMode": "RGB",
+      "layerNamingContract": {
+        "frames": ["frame_1", "frame_2", "frame_3", "frame_4"],
+        "background": "background",
+        "overlays": ["overlay_borders"],
+        "safeArea": "safe_area_guide",
+        "bleedArea": "bleed_area_guide"
+      },
+      "theme": "general",
+      "occasion": "family",
+      "tags": ["grid", "4-photos", "classic", "simple"],
+      "isPremium": false,
+      "created": "2026-08-28T07:50:00Z",
+      "updated": "2026-08-28T07:50:00Z"
+    },
+    {
+      "id": "mug-6photo-mosaic-001",
+      "name": "Photo Mosaic Mug - Six Photo",
+      "description": "Mosaic layout with six photo frames",
+      "productCategory": "mugs",
+      "productSubcategory": "11oz",
+      "frameCount": 6,
+      "path": "templates/mugs/6-photo/mosaic-mug.psd",
+      "thumbnailPath": "templates/mugs/6-photo/thumbs/mosaic-mug-thumb.jpg",
+      "dimensions": {
+        "width": 2400,
+        "height": 1038,
+        "unit": "px"
+      },
+      "dpi": 300,
+      "colorMode": "RGB",
+      "layerNamingContract": {
+        "frames": ["frame_1", "frame_2", "frame_3", "frame_4", "frame_5", "frame_6"],
+        "background": "background",
+        "overlays": ["overlay_borders", "overlay_text"],
+        "safeArea": "safe_area_guide",
+        "bleedArea": "bleed_area_guide"
+      },
+      "theme": "general",
+      "occasion": "family",
+      "tags": ["mosaic", "6-photos", "collage", "memories"],
+      "isPremium": false,
+      "created": "2026-08-28T07:50:00Z",
+      "updated": "2026-08-28T07:50:00Z"
+    },
+    {
+      "id": "bottle-1photo-sports-001",
+      "name": "Sports Bottle - Single Photo",
+      "description": "Sports theme water bottle with single photo",
+      "productCategory": "bottles",
+      "productSubcategory": "500ml",
+      "frameCount": 1,
+      "path": "templates/bottles/1-photo/sports-bottle.psd",
+      "thumbnailPath": "templates/bottles/1-photo/thumbs/sports-bottle-thumb.jpg",
+      "dimensions": {
+        "width": 900,
+        "height": 2100,
+        "unit": "px"
+      },
+      "dpi": 300,
+      "colorMode": "RGB",
+      "layerNamingContract": {
+        "frames": ["frame_1"],
+        "background": "background",
+        "overlays": ["overlay_sports", "overlay_text"],
+        "safeArea": "safe_area_guide",
+        "bleedArea": "bleed_area_guide"
+      },
+      "theme": "sports",
+      "occasion": "fitness",
+      "tags": ["sports", "fitness", "water-bottle", "active"],
+      "isPremium": false,
+      "created": "2026-08-28T07:50:00Z",
+      "updated": "2026-08-28T07:50:00Z"
+    },
+    {
+      "id": "tshirt-front-only-basic-001",
+      "name": "T-Shirt Front Print - Basic",
+      "description": "Basic front-only t-shirt template",
+      "productCategory": "tshirts",
+      "productSubcategory": "adult-unisex",
+      "frameCount": 1,
+      "path": "templates/tshirts/front-only/basic-front.psd",
+      "thumbnailPath": "templates/tshirts/front-only/thumbs/basic-front-thumb.jpg",
+      "dimensions": {
+        "width": 3600,
+        "height": 4200,
+        "unit": "px"
+      },
+      "dpi": 300,
+      "colorMode": "RGB",
+      "layerNamingContract": {
+        "frames": ["frame_1"],
+        "background": "tshirt_base",
+        "overlays": ["overlay_shadow"],
+        "safeArea": "safe_area_guide",
+        "bleedArea": "bleed_area_guide"
+      },
+      "theme": "general",
+      "occasion": "custom",
+      "tags": ["tshirt", "front-print", "basic", "custom"],
+      "isPremium": false,
+      "created": "2026-08-28T07:50:00Z",
+      "updated": "2026-08-28T07:50:00Z"
+    },
+    {
+      "id": "cushion-square-16x16-001",
+      "name": "Square Cushion 16x16 - Single Photo",
+      "description": "16x16 inch square cushion with single photo",
+      "productCategory": "cushions",
+      "productSubcategory": "16x16",
+      "frameCount": 1,
+      "path": "templates/cushions/square-16x16/single-photo.psd",
+      "thumbnailPath": "templates/cushions/square-16x16/thumbs/single-photo-thumb.jpg",
+      "dimensions": {
+        "width": 4800,
+        "height": 4800,
+        "unit": "px"
+      },
+      "dpi": 300,
+      "colorMode": "RGB",
+      "layerNamingContract": {
+        "frames": ["frame_1"],
+        "background": "cushion_base",
+        "overlays": ["overlay_texture", "overlay_shadow"],
+        "safeArea": "safe_area_guide",
+        "bleedArea": "bleed_area_guide"
+      },
+      "theme": "general",
+      "occasion": "home-decor",
+      "tags": ["cushion", "square", "16x16", "home-decor"],
+      "isPremium": false,
+      "created": "2026-08-28T07:50:00Z",
+      "updated": "2026-08-28T07:50:00Z"
+    },
+    {
+      "id": "tile-6x6-mosaic-001",
+      "name": "Ceramic Tile 6x6 - Mosaic",
+      "description": "6x6 inch ceramic tile with mosaic layout",
+      "productCategory": "tiles",
+      "productSubcategory": "6x6",
+      "frameCount": 4,
+      "path": "templates/tiles/6x6/mosaic-tile.psd",
+      "thumbnailPath": "templates/tiles/6x6/thumbs/mosaic-tile-thumb.jpg",
+      "dimensions": {
+        "width": 1800,
+        "height": 1800,
+        "unit": "px"
+      },
+      "dpi": 300,
+      "colorMode": "RGB",
+      "layerNamingContract": {
+        "frames": ["frame_1", "frame_2", "frame_3", "frame_4"],
+        "background": "tile_base",
+        "overlays": ["overlay_grout", "overlay_gloss"],
+        "safeArea": "safe_area_guide",
+        "bleedArea": "bleed_area_guide"
+      },
+      "theme": "general",
+      "occasion": "home-decor",
+      "tags": ["tile", "ceramic", "6x6", "mosaic", "home-decor"],
+      "isPremium": false,
+      "created": "2026-08-28T07:50:00Z",
+      "updated": "2026-08-28T07:50:00Z"
+    },
+    {
+      "id": "mobile-iphone15-single-001",
+      "name": "iPhone 15 - Single Photo Case",
+      "description": "iPhone 15 hard case with single photo",
+      "productCategory": "mobile",
+      "productSubcategory": "iphone-15",
+      "frameCount": 1,
+      "path": "templates/mobile/iphone-15/single-photo.psd",
+      "thumbnailPath": "templates/mobile/iphone-15/thumbs/single-photo-thumb.jpg",
+      "dimensions": {
+        "width": 840,
+        "height": 1734,
+        "unit": "px"
+      },
+      "dpi": 300,
+      "colorMode": "RGB",
+      "layerNamingContract": {
+        "frames": ["frame_1"],
+        "background": "case_base",
+        "overlays": ["overlay_camera_cutout", "overlay_shadow"],
+        "safeArea": "safe_area_guide",
+        "bleedArea": "bleed_area_guide"
+      },
+      "theme": "general",
+      "occasion": "custom",
+      "tags": ["mobile", "iphone-15", "phone-case", "apple"],
+      "isPremium": false,
+      "created": "2026-08-28T07:50:00Z",
+      "updated": "2026-08-28T07:50:00Z"
+    }
+  ]
+}

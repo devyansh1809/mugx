@@ -1,0 +1,177 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://mugx.app/schemas/assets_schema.json",
+  "title": "Assets Library Schema",
+  "description": "Schema for asset library JSON file indexing all reusable assets (backgrounds, effects, clipart, etc.)",
+  "type": "object",
+  "required": ["version", "generated", "assets"],
+  "properties": {
+    "version": {
+      "type": "string",
+      "description": "Schema version (e.g., '1.0')",
+      "example": "1.0"
+    },
+    "generated": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp when registry was generated"
+    },
+    "assets": {
+      "type": "array",
+      "description": "Array of asset entries",
+      "items": {
+        "$ref": "#/definitions/asset"
+      }
+    }
+  },
+  "definitions": {
+    "asset": {
+      "type": "object",
+      "required": [
+        "id",
+        "name",
+        "category",
+        "subcategory",
+        "path",
+        "type",
+        "dimensions"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique asset identifier",
+          "pattern": "^[a-z0-9-]+$",
+          "example": "bg-gradient-rainbow-001"
+        },
+        "name": {
+          "type": "string",
+          "description": "Human-readable asset name",
+          "example": "Rainbow Gradient Background"
+        },
+        "description": {
+          "type": "string",
+          "description": "Optional description"
+        },
+        "category": {
+          "type": "string",
+          "description": "Asset category",
+          "enum": ["backgrounds", "effects", "clipart", "text-presets", "patterns", "textures"],
+          "example": "backgrounds"
+        },
+        "subcategory": {
+          "type": "string",
+          "description": "Asset subcategory",
+          "example": "gradients"
+        },
+        "path": {
+          "type": "string",
+          "description": "Relative path to asset file from SubliStudioAssets root",
+          "example": "backgrounds/gradients/rainbow-gradient-1920x1080.jpg"
+        },
+        "thumbnailPath": {
+          "type": "string",
+          "description": "Relative path to thumbnail preview",
+          "example": "backgrounds/gradients/thumbs/rainbow-gradient-thumb.jpg"
+        },
+        "type": {
+          "type": "string",
+          "description": "File type/format",
+          "enum": ["jpg", "png", "psd", "svg", "ttf", "otf"],
+          "example": "jpg"
+        },
+        "dimensions": {
+          "type": "object",
+          "description": "Asset dimensions",
+          "required": ["width", "height"],
+          "properties": {
+            "width": {
+              "type": "integer",
+              "description": "Width in pixels",
+              "example": 1920
+            },
+            "height": {
+              "type": "integer",
+              "description": "Height in pixels",
+              "example": 1080
+            }
+          }
+        },
+        "dpi": {
+          "type": "integer",
+          "description": "Resolution in DPI (for print assets)",
+          "minimum": 72,
+          "maximum": 600,
+          "example": 300
+        },
+        "fileSize": {
+          "type": "integer",
+          "description": "File size in bytes",
+          "example": 524288
+        },
+        "colorSpace": {
+          "type": "string",
+          "description": "Color space",
+          "enum": ["RGB", "CMYK", "Grayscale", "Lab"],
+          "example": "RGB"
+        },
+        "hasTransparency": {
+          "type": "boolean",
+          "description": "Whether asset has transparency (PNG)",
+          "default": false
+        },
+        "isTileable": {
+          "type": "boolean",
+          "description": "Whether pattern can be tiled seamlessly",
+          "default": false
+        },
+        "tags": {
+          "type": "array",
+          "description": "Search tags",
+          "items": {
+            "type": "string"
+          },
+          "example": ["rainbow", "gradient", "colorful", "pride"]
+        },
+        "theme": {
+          "type": "string",
+          "description": "Theme/occasion association",
+          "example": "pride"
+        },
+        "occasion": {
+          "type": "string",
+          "description": "Specific occasion",
+          "example": "lgbtq-pride"
+        },
+        "isPremium": {
+          "type": "boolean",
+          "description": "Whether asset is premium/paid",
+          "default": false
+        },
+        "license": {
+          "type": "string",
+          "description": "License type",
+          "enum": ["free", "commercial", "attribution-required", "premium"],
+          "example": "commercial"
+        },
+        "attribution": {
+          "type": "string",
+          "description": "Attribution text if required"
+        },
+        "source": {
+          "type": "string",
+          "description": "Asset source/creator"
+        },
+        "created": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Asset creation timestamp"
+        },
+        "updated": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Asset last modified timestamp"
+        }
+      }
+    }
+  }
+}
