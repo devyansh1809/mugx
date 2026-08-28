@@ -1,0 +1,294 @@
+{
+  "version": "1.0",
+  "generated": "2026-08-28T07:50:00Z",
+  "models": [
+    {
+      "id": "iphone-15",
+      "brand": "Apple",
+      "modelName": "iPhone 15",
+      "modelCode": "A2846",
+      "releaseYear": 2023,
+      "screenSize": 6.1,
+      "printArea": {
+        "width": 71,
+        "height": 147,
+        "wrapType": "back-only",
+        "unit": "mm"
+      },
+      "canvasSize": {
+        "width": 840,
+        "height": 1734
+      },
+      "dpi": 300,
+      "bleed": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2,
+        "unit": "mm"
+      },
+      "safeArea": {
+        "top": 15,
+        "right": 3,
+        "bottom": 5,
+        "left": 3,
+        "unit": "mm"
+      },
+      "cameraCutout": {
+        "position": "top-left",
+        "shape": "pill",
+        "diameter": 12,
+        "offsetX": 10,
+        "offsetY": 8
+      },
+      "buttonCutouts": [
+        {
+          "side": "right",
+          "type": "power",
+          "offsetY": 45,
+          "width": 8,
+          "height": 3
+        },
+        {
+          "side": "left",
+          "type": "volume",
+          "offsetY": 40,
+          "width": 8,
+          "height": 3
+        },
+        {
+          "side": "left",
+          "type": "mute",
+          "offsetY": 25,
+          "width": 6,
+          "height": 2
+        }
+      ],
+      "psdTemplatePath": "templates/mobile/iphone-15/iphone-15-template.psd",
+      "mockupPath": "mockups/mobile/iphone-15-mockup.jpg",
+      "mockupAngles": [
+        {
+          "angle": "front",
+          "path": "mockups/mobile/iphone-15-front.jpg"
+        },
+        {
+          "angle": "back",
+          "path": "mockups/mobile/iphone-15-back.jpg"
+        }
+      ],
+      "caseType": "hard-case",
+      "finishOptions": ["matte", "glossy"],
+      "colorOptions": ["white", "clear"],
+      "printMirrorRule": false,
+      "isActive": true,
+      "isPopular": true,
+      "basePrice": 499,
+      "tags": ["iphone", "apple", "2023", "6.1-inch", "popular"]
+    },
+    {
+      "id": "iphone-15-pro",
+      "brand": "Apple",
+      "modelName": "iPhone 15 Pro",
+      "modelCode": "A2848",
+      "releaseYear": 2023,
+      "screenSize": 6.1,
+      "printArea": {
+        "width": 71,
+        "height": 147,
+        "wrapType": "back-only",
+        "unit": "mm"
+      },
+      "canvasSize": {
+        "width": 840,
+        "height": 1734
+      },
+      "dpi": 300,
+      "bleed": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2,
+        "unit": "mm"
+      },
+      "safeArea": {
+        "top": 15,
+        "right": 3,
+        "bottom": 5,
+        "left": 3,
+        "unit": "mm"
+      },
+      "cameraCutout": {
+        "position": "top-left",
+        "shape": "pill",
+        "diameter": 15,
+        "offsetX": 10,
+        "offsetY": 8
+      },
+      "buttonCutouts": [
+        {
+          "side": "right",
+          "type": "power",
+          "offsetY": 45,
+          "width": 8,
+          "height": 3
+        },
+        {
+          "side": "left",
+          "type": "volume",
+          "offsetY": 40,
+          "width": 8,
+          "height": 3
+        },
+        {
+          "side": "left",
+          "type": "mute",
+          "offsetY": 25,
+          "width": 6,
+          "height": 2
+        }
+      ],
+      "psdTemplatePath": "templates/mobile/iphone-15-pro/iphone-15-pro-template.psd",
+      "mockupPath": "mockups/mobile/iphone-15-pro-mockup.jpg",
+      "caseType": "hard-case",
+      "finishOptions": ["matte", "glossy"],
+      "colorOptions": ["white", "clear"],
+      "printMirrorRule": false,
+      "isActive": true,
+      "isPopular": true,
+      "basePrice": 599,
+      "tags": ["iphone", "apple", "2023", "pro", "6.1-inch"]
+    },
+    {
+      "id": "samsung-s24",
+      "brand": "Samsung",
+      "modelName": "Samsung Galaxy S24",
+      "modelCode": "SM-S921",
+      "releaseYear": 2024,
+      "screenSize": 6.2,
+      "printArea": {
+        "width": 70,
+        "height": 147,
+        "wrapType": "back-only",
+        "unit": "mm"
+      },
+      "canvasSize": {
+        "width": 827,
+        "height": 1734
+      },
+      "dpi": 300,
+      "bleed": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2,
+        "unit": "mm"
+      },
+      "safeArea": {
+        "top": 12,
+        "right": 3,
+        "bottom": 5,
+        "left": 3,
+        "unit": "mm"
+      },
+      "cameraCutout": {
+        "position": "top-left",
+        "shape": "pill",
+        "diameter": 10,
+        "offsetX": 8,
+        "offsetY": 6
+      },
+      "buttonCutouts": [
+        {
+          "side": "right",
+          "type": "power",
+          "offsetY": 50,
+          "width": 8,
+          "height": 3
+        },
+        {
+          "side": "left",
+          "type": "volume",
+          "offsetY": 45,
+          "width": 8,
+          "height": 3
+        }
+      ],
+      "psdTemplatePath": "templates/mobile/samsung-s24/samsung-s24-template.psd",
+      "mockupPath": "mockups/mobile/samsung-s24-mockup.jpg",
+      "caseType": "hard-case",
+      "finishOptions": ["matte", "glossy"],
+      "colorOptions": ["white", "clear"],
+      "printMirrorRule": false,
+      "isActive": true,
+      "isPopular": true,
+      "basePrice": 499,
+      "tags": ["samsung", "galaxy", "s24", "2024", "android"]
+    },
+    {
+      "id": "oneplus-12",
+      "brand": "OnePlus",
+      "modelName": "OnePlus 12",
+      "modelCode": "CPH2581",
+      "releaseYear": 2024,
+      "screenSize": 6.82,
+      "printArea": {
+        "width": 75,
+        "height": 163,
+        "wrapType": "back-only",
+        "unit": "mm"
+      },
+      "canvasSize": {
+        "width": 886,
+        "height": 1920
+      },
+      "dpi": 300,
+      "bleed": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2,
+        "unit": "mm"
+      },
+      "safeArea": {
+        "top": 15,
+        "right": 3,
+        "bottom": 5,
+        "left": 3,
+        "unit": "mm"
+      },
+      "cameraCutout": {
+        "position": "top-left",
+        "shape": "circle",
+        "diameter": 12,
+        "offsetX": 10,
+        "offsetY": 8
+      },
+      "buttonCutouts": [
+        {
+          "side": "right",
+          "type": "power",
+          "offsetY": 55,
+          "width": 8,
+          "height": 3
+        },
+        {
+          "side": "left",
+          "type": "volume",
+          "offsetY": 50,
+          "width": 8,
+          "height": 3
+        }
+      ],
+      "psdTemplatePath": "templates/mobile/oneplus-12/oneplus-12-template.psd",
+      "mockupPath": "mockups/mobile/oneplus-12-mockup.jpg",
+      "caseType": "hard-case",
+      "finishOptions": ["matte", "glossy"],
+      "colorOptions": ["white", "clear"],
+      "printMirrorRule": false,
+      "isActive": true,
+      "isPopular": false,
+      "basePrice": 499,
+      "tags": ["oneplus", "12", "2024", "android", "large-screen"]
+    }
+  ]
+}

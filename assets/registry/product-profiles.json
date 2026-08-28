@@ -1,0 +1,483 @@
+{
+  "version": "1.0",
+  "generated": "2026-08-28T07:50:00Z",
+  "products": [
+    {
+      "id": "mug-11oz-white",
+      "name": "11oz White Ceramic Mug",
+      "description": "Standard 11oz white ceramic mug for sublimation printing",
+      "category": "mugs",
+      "subcategory": "11oz",
+      "dimensions": {
+        "width": 82,
+        "height": 95,
+        "diameter": 82,
+        "unit": "mm"
+      },
+      "printArea": {
+        "width": 203,
+        "height": 88,
+        "wrapType": "full-wrap",
+        "unit": "mm"
+      },
+      "canvasSize": {
+        "width": 2400,
+        "height": 1038
+      },
+      "dpi": 300,
+      "bleed": {
+        "top": 3,
+        "right": 3,
+        "bottom": 3,
+        "left": 3,
+        "unit": "mm"
+      },
+      "safeArea": {
+        "top": 5,
+        "right": 5,
+        "bottom": 5,
+        "left": 5,
+        "unit": "mm"
+      },
+      "printMirrorRule": true,
+      "printMirrorNote": "Mirror horizontally for sublimation transfer",
+      "psdTemplatePath": "templates/mugs/11oz-base-template.psd",
+      "mockupPath": "mockups/mugs/11oz-white-mug-mockup.jpg",
+      "mockupAngles": [
+        {
+          "angle": "front",
+          "path": "mockups/mugs/11oz-white-mug-front.jpg"
+        },
+        {
+          "angle": "angle",
+          "path": "mockups/mugs/11oz-white-mug-angle.jpg"
+        }
+      ],
+      "colorOptions": ["white", "black", "blue", "red", "pink"],
+      "material": "ceramic",
+      "weight": {
+        "value": 350,
+        "unit": "g"
+      },
+      "packagingDimensions": {
+        "length": 120,
+        "width": 90,
+        "height": 100,
+        "unit": "mm"
+      },
+      "isActive": true,
+      "isPremium": false,
+      "basePrice": 250,
+      "tags": ["mug", "ceramic", "11oz", "sublimation", "bestseller"]
+    },
+    {
+      "id": "mug-15oz-white",
+      "name": "15oz White Ceramic Mug",
+      "description": "Large 15oz white ceramic mug for sublimation printing",
+      "category": "mugs",
+      "subcategory": "15oz",
+      "dimensions": {
+        "width": 82,
+        "height": 115,
+        "diameter": 82,
+        "unit": "mm"
+      },
+      "printArea": {
+        "width": 203,
+        "height": 108,
+        "wrapType": "full-wrap",
+        "unit": "mm"
+      },
+      "canvasSize": {
+        "width": 2400,
+        "height": 1276
+      },
+      "dpi": 300,
+      "bleed": {
+        "top": 3,
+        "right": 3,
+        "bottom": 3,
+        "left": 3,
+        "unit": "mm"
+      },
+      "safeArea": {
+        "top": 5,
+        "right": 5,
+        "bottom": 5,
+        "left": 5,
+        "unit": "mm"
+      },
+      "printMirrorRule": true,
+      "printMirrorNote": "Mirror horizontally for sublimation transfer",
+      "psdTemplatePath": "templates/mugs/15oz-base-template.psd",
+      "mockupPath": "mockups/mugs/15oz-white-mug-mockup.jpg",
+      "colorOptions": ["white", "black"],
+      "material": "ceramic",
+      "weight": {
+        "value": 450,
+        "unit": "g"
+      },
+      "isActive": true,
+      "isPremium": false,
+      "basePrice": 300,
+      "tags": ["mug", "ceramic", "15oz", "large", "sublimation"]
+    },
+    {
+      "id": "bottle-500ml-steel",
+      "name": "500ml Stainless Steel Bottle",
+      "description": "500ml stainless steel water bottle for sublimation",
+      "category": "bottles",
+      "subcategory": "500ml",
+      "dimensions": {
+        "width": 70,
+        "height": 260,
+        "diameter": 70,
+        "unit": "mm"
+      },
+      "printArea": {
+        "width": 220,
+        "height": 180,
+        "wrapType": "full-wrap",
+        "unit": "mm"
+      },
+      "canvasSize": {
+        "width": 900,
+        "height": 2100
+      },
+      "dpi": 300,
+      "bleed": {
+        "top": 3,
+        "right": 3,
+        "bottom": 3,
+        "left": 3,
+        "unit": "mm"
+      },
+      "safeArea": {
+        "top": 10,
+        "right": 5,
+        "bottom": 10,
+        "left": 5,
+        "unit": "mm"
+      },
+      "printMirrorRule": true,
+      "psdTemplatePath": "templates/bottles/500ml-base-template.psd",
+      "mockupPath": "mockups/bottles/500ml-steel-bottle-mockup.jpg",
+      "colorOptions": ["silver", "black", "blue", "red"],
+      "material": "stainless-steel",
+      "weight": {
+        "value": 300,
+        "unit": "g"
+      },
+      "isActive": true,
+      "isPremium": false,
+      "basePrice": 450,
+      "tags": ["bottle", "water-bottle", "steel", "500ml", "sports"]
+    },
+    {
+      "id": "tshirt-adult-unisex",
+      "name": "Adult Unisex T-Shirt",
+      "description": "100% cotton adult unisex t-shirt for DTG/sublimation",
+      "category": "tshirts",
+      "subcategory": "adult-unisex",
+      "dimensions": {
+        "width": 500,
+        "height": 700,
+        "unit": "mm"
+      },
+      "printArea": {
+        "width": 300,
+        "height": 400,
+        "wrapType": "front-only",
+        "unit": "mm"
+      },
+      "canvasSize": {
+        "width": 3600,
+        "height": 4200
+      },
+      "dpi": 300,
+      "bleed": {
+        "top": 10,
+        "right": 10,
+        "bottom": 10,
+        "left": 10,
+        "unit": "mm"
+      },
+      "safeArea": {
+        "top": 20,
+        "right": 20,
+        "bottom": 20,
+        "left": 20,
+        "unit": "mm"
+      },
+      "printMirrorRule": false,
+      "psdTemplatePath": "templates/tshirts/adult-unisex-base-template.psd",
+      "mockupPath": "mockups/tshirts/adult-tshirt-mockup.jpg",
+      "colorOptions": ["white", "black", "navy", "red", "gray", "pink"],
+      "material": "cotton",
+      "weight": {
+        "value": 180,
+        "unit": "g"
+      },
+      "isActive": true,
+      "isPremium": false,
+      "basePrice": 399,
+      "tags": ["tshirt", "adult", "unisex", "cotton", "dtg"]
+    },
+    {
+      "id": "cushion-square-16x16",
+      "name": "Square Cushion 16x16 inch",
+      "description": "16x16 inch square cushion with zipper for sublimation",
+      "category": "cushions",
+      "subcategory": "16x16",
+      "dimensions": {
+        "width": 406,
+        "height": 406,
+        "depth": 100,
+        "unit": "mm"
+      },
+      "printArea": {
+        "width": 406,
+        "height": 406,
+        "wrapType": "front-only",
+        "unit": "mm"
+      },
+      "canvasSize": {
+        "width": 4800,
+        "height": 4800
+      },
+      "dpi": 300,
+      "bleed": {
+        "top": 5,
+        "right": 5,
+        "bottom": 5,
+        "left": 5,
+        "unit": "mm"
+      },
+      "safeArea": {
+        "top": 15,
+        "right": 15,
+        "bottom": 15,
+        "left": 15,
+        "unit": "mm"
+      },
+      "printMirrorRule": false,
+      "psdTemplatePath": "templates/cushions/16x16-base-template.psd",
+      "mockupPath": "mockups/cushions/square-16x16-mockup.jpg",
+      "colorOptions": ["white"],
+      "material": "fabric",
+      "weight": {
+        "value": 400,
+        "unit": "g"
+      },
+      "isActive": true,
+      "isPremium": false,
+      "basePrice": 599,
+      "tags": ["cushion", "square", "16x16", "home-decor", "zipper"]
+    },
+    {
+      "id": "tile-ceramic-6x6",
+      "name": "Ceramic Tile 6x6 inch",
+      "description": "6x6 inch ceramic tile for sublimation",
+      "category": "tiles",
+      "subcategory": "6x6",
+      "dimensions": {
+        "width": 152,
+        "height": 152,
+        "depth": 8,
+        "unit": "mm"
+      },
+      "printArea": {
+        "width": 152,
+        "height": 152,
+        "wrapType": "front-only",
+        "unit": "mm"
+      },
+      "canvasSize": {
+        "width": 1800,
+        "height": 1800
+      },
+      "dpi": 300,
+      "bleed": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2,
+        "unit": "mm"
+      },
+      "safeArea": {
+        "top": 5,
+        "right": 5,
+        "bottom": 5,
+        "left": 5,
+        "unit": "mm"
+      },
+      "printMirrorRule": true,
+      "psdTemplatePath": "templates/tiles/6x6-base-template.psd",
+      "mockupPath": "mockups/tiles/ceramic-6x6-mockup.jpg",
+      "colorOptions": ["white", "glossy"],
+      "material": "ceramic",
+      "weight": {
+        "value": 250,
+        "unit": "g"
+      },
+      "isActive": true,
+      "isPremium": false,
+      "basePrice": 199,
+      "tags": ["tile", "ceramic", "6x6", "home-decor", "wall-art"]
+    },
+    {
+      "id": "keyring-round-acrylic",
+      "name": "Round Acrylic Keyring",
+      "description": "Round acrylic keyring for sublimation (60mm diameter)",
+      "category": "keyrings",
+      "subcategory": "round",
+      "dimensions": {
+        "width": 60,
+        "height": 60,
+        "depth": 3,
+        "diameter": 60,
+        "unit": "mm"
+      },
+      "printArea": {
+        "width": 56,
+        "height": 56,
+        "wrapType": "front-only",
+        "unit": "mm"
+      },
+      "canvasSize": {
+        "width": 661,
+        "height": 661
+      },
+      "dpi": 300,
+      "bleed": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2,
+        "unit": "mm"
+      },
+      "safeArea": {
+        "top": 3,
+        "right": 3,
+        "bottom": 3,
+        "left": 3,
+        "unit": "mm"
+      },
+      "printMirrorRule": true,
+      "psdTemplatePath": "templates/keyrings/round-base-template.psd",
+      "mockupPath": "mockups/keyrings/round-acrylic-mockup.jpg",
+      "colorOptions": ["white"],
+      "material": "acrylic",
+      "weight": {
+        "value": 20,
+        "unit": "g"
+      },
+      "isActive": true,
+      "isPremium": false,
+      "basePrice": 99,
+      "tags": ["keyring", "round", "acrylic", "60mm", "gift"]
+    },
+    {
+      "id": "mobile-iphone-15",
+      "name": "iPhone 15 Hard Case",
+      "description": "iPhone 15 (6.1 inch) hard case for sublimation",
+      "category": "mobile",
+      "subcategory": "iphone-15",
+      "dimensions": {
+        "width": 71,
+        "height": 147,
+        "depth": 8,
+        "unit": "mm"
+      },
+      "printArea": {
+        "width": 71,
+        "height": 147,
+        "wrapType": "back-only",
+        "unit": "mm"
+      },
+      "canvasSize": {
+        "width": 840,
+        "height": 1734
+      },
+      "dpi": 300,
+      "bleed": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2,
+        "unit": "mm"
+      },
+      "safeArea": {
+        "top": 15,
+        "right": 3,
+        "bottom": 5,
+        "left": 3,
+        "unit": "mm"
+      },
+      "printMirrorRule": false,
+      "psdTemplatePath": "templates/mobile/iphone-15-base-template.psd",
+      "mockupPath": "mockups/mobile/iphone-15-mockup.jpg",
+      "colorOptions": ["white", "clear"],
+      "material": "hard-plastic",
+      "weight": {
+        "value": 30,
+        "unit": "g"
+      },
+      "isActive": true,
+      "isPremium": false,
+      "basePrice": 499,
+      "tags": ["mobile", "iphone-15", "phone-case", "apple", "hard-case"]
+    },
+    {
+      "id": "mobile-samsung-s24",
+      "name": "Samsung Galaxy S24 Hard Case",
+      "description": "Samsung Galaxy S24 (6.2 inch) hard case for sublimation",
+      "category": "mobile",
+      "subcategory": "samsung-s24",
+      "dimensions": {
+        "width": 70,
+        "height": 147,
+        "depth": 8,
+        "unit": "mm"
+      },
+      "printArea": {
+        "width": 70,
+        "height": 147,
+        "wrapType": "back-only",
+        "unit": "mm"
+      },
+      "canvasSize": {
+        "width": 827,
+        "height": 1734
+      },
+      "dpi": 300,
+      "bleed": {
+        "top": 2,
+        "right": 2,
+        "bottom": 2,
+        "left": 2,
+        "unit": "mm"
+      },
+      "safeArea": {
+        "top": 12,
+        "right": 3,
+        "bottom": 5,
+        "left": 3,
+        "unit": "mm"
+      },
+      "printMirrorRule": false,
+      "psdTemplatePath": "templates/mobile/samsung-s24-base-template.psd",
+      "mockupPath": "mockups/mobile/samsung-s24-mockup.jpg",
+      "colorOptions": ["white", "clear"],
+      "material": "hard-plastic",
+      "weight": {
+        "value": 30,
+        "unit": "g"
+      },
+      "isActive": true,
+      "isPremium": false,
+      "basePrice": 499,
+      "tags": ["mobile", "samsung", "s24", "phone-case", "hard-case"]
+    }
+  ]
+}

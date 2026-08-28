@@ -1,0 +1,224 @@
+{
+  "version": "1.0",
+  "generated": "2026-08-28T07:50:00Z",
+  "assets": [
+    {
+      "id": "bg-solid-white-001",
+      "name": "Pure White Background",
+      "category": "backgrounds",
+      "subcategory": "solid-colors",
+      "path": "backgrounds/solid-colors/white-1920x1080.jpg",
+      "thumbnailPath": "backgrounds/solid-colors/thumbs/white-thumb.jpg",
+      "type": "jpg",
+      "dimensions": {
+        "width": 1920,
+        "height": 1080
+      },
+      "dpi": 300,
+      "colorSpace": "RGB",
+      "tags": ["white", "solid", "clean", "minimal"]
+    },
+    {
+      "id": "bg-gradient-rainbow-001",
+      "name": "Rainbow Gradient Background",
+      "category": "backgrounds",
+      "subcategory": "gradients",
+      "path": "backgrounds/gradients/rainbow-gradient-1920x1080.jpg",
+      "thumbnailPath": "backgrounds/gradients/thumbs/rainbow-gradient-thumb.jpg",
+      "type": "jpg",
+      "dimensions": {
+        "width": 1920,
+        "height": 1080
+      },
+      "dpi": 300,
+      "colorSpace": "RGB",
+      "tags": ["rainbow", "gradient", "colorful", "pride"]
+    },
+    {
+      "id": "bg-pattern-polka-dots-001",
+      "name": "Polka Dots Pattern",
+      "category": "backgrounds",
+      "subcategory": "patterns",
+      "path": "backgrounds/patterns/polka-dots-1920x1080.jpg",
+      "thumbnailPath": "backgrounds/patterns/thumbs/polka-dots-thumb.jpg",
+      "type": "jpg",
+      "dimensions": {
+        "width": 1920,
+        "height": 1080
+      },
+      "dpi": 300,
+      "colorSpace": "RGB",
+      "isTileable": true,
+      "tags": ["polka-dots", "pattern", "cute", "playful"]
+    },
+    {
+      "id": "bg-texture-wood-001",
+      "name": "Wood Texture Background",
+      "category": "backgrounds",
+      "subcategory": "textures",
+      "path": "backgrounds/textures/wood-1920x1080.jpg",
+      "thumbnailPath": "backgrounds/textures/thumbs/wood-thumb.jpg",
+      "type": "jpg",
+      "dimensions": {
+        "width": 1920,
+        "height": 1080
+      },
+      "dpi": 300,
+      "colorSpace": "RGB",
+      "tags": ["wood", "texture", "natural", "rustic"]
+    },
+    {
+      "id": "bg-themed-birthday-cake-001",
+      "name": "Birthday Cake Theme Background",
+      "category": "backgrounds",
+      "subcategory": "themed",
+      "path": "backgrounds/themed/birthday/birthday-cake-bg-1920x1080.jpg",
+      "thumbnailPath": "backgrounds/themed/birthday/thumbs/cake-bg-thumb.jpg",
+      "type": "jpg",
+      "dimensions": {
+        "width": 1920,
+        "height": 1080
+      },
+      "dpi": 300,
+      "colorSpace": "RGB",
+      "theme": "birthday",
+      "tags": ["birthday", "cake", "party", "celebration"]
+    },
+    {
+      "id": "effect-bokeh-gold-001",
+      "name": "Gold Bokeh Effect",
+      "category": "effects",
+      "subcategory": "bokeh",
+      "path": "effects/bokeh/gold-bokeh-overlay.png",
+      "thumbnailPath": "effects/bokeh/thumbs/gold-bokeh-thumb.jpg",
+      "type": "png",
+      "dimensions": {
+        "width": 1920,
+        "height": 1080
+      },
+      "dpi": 300,
+      "colorSpace": "RGB",
+      "hasTransparency": true,
+      "tags": ["bokeh", "gold", "sparkle", "elegant"]
+    },
+    {
+      "id": "effect-light-leak-warm-001",
+      "name": "Warm Light Leak Effect",
+      "category": "effects",
+      "subcategory": "light-leaks",
+      "path": "effects/light-leaks/warm-leak-overlay.png",
+      "thumbnailPath": "effects/light-leaks/thumbs/warm-leak-thumb.jpg",
+      "type": "png",
+      "dimensions": {
+        "width": 1920,
+        "height": 1080
+      },
+      "dpi": 300,
+      "colorSpace": "RGB",
+      "hasTransparency": true,
+      "tags": ["light-leak", "warm", "sunset", "vintage"]
+    },
+    {
+      "id": "effect-glow-soft-001",
+      "name": "Soft Glow Effect",
+      "category": "effects",
+      "subcategory": "glow",
+      "path": "effects/glow/soft-glow-overlay.png",
+      "thumbnailPath": "effects/glow/thumbs/soft-glow-thumb.jpg",
+      "type": "png",
+      "dimensions": {
+        "width": 1920,
+        "height": 1080
+      },
+      "dpi": 300,
+      "colorSpace": "RGB",
+      "hasTransparency": true,
+      "tags": ["glow", "soft", "dreamy", "romantic"]
+    },
+    {
+      "id": "clipart-birthday-cake-001",
+      "name": "Birthday Cake Clipart",
+      "category": "clipart",
+      "subcategory": "birthday",
+      "path": "clipart/birthday/cake-clipart.png",
+      "thumbnailPath": "clipart/birthday/thumbs/cake-thumb.png",
+      "type": "png",
+      "dimensions": {
+        "width": 1000,
+        "height": 1000
+      },
+      "dpi": 300,
+      "colorSpace": "RGB",
+      "hasTransparency": true,
+      "tags": ["birthday", "cake", "celebration", "party"]
+    },
+    {
+      "id": "clipart-hearts-red-001",
+      "name": "Red Hearts Clipart",
+      "category": "clipart",
+      "subcategory": "love-hearts",
+      "path": "clipart/love-hearts/red-hearts.png",
+      "thumbnailPath": "clipart/love-hearts/thumbs/red-hearts-thumb.png",
+      "type": "png",
+      "dimensions": {
+        "width": 1000,
+        "height": 1000
+      },
+      "dpi": 300,
+      "colorSpace": "RGB",
+      "hasTransparency": true,
+      "tags": ["hearts", "love", "romantic", "valentine"]
+    },
+    {
+      "id": "clipart-flowers-sunflower-001",
+      "name": "Sunflower Clipart",
+      "category": "clipart",
+      "subcategory": "flowers",
+      "path": "clipart/flowers/sunflower.png",
+      "thumbnailPath": "clipart/flowers/thumbs/sunflower-thumb.png",
+      "type": "png",
+      "dimensions": {
+        "width": 1000,
+        "height": 1000
+      },
+      "dpi": 300,
+      "colorSpace": "RGB",
+      "hasTransparency": true,
+      "tags": ["flowers", "sunflower", "nature", "summer"]
+    },
+    {
+      "id": "text-preset-happy-birthday-001",
+      "name": "Happy Birthday Text Preset",
+      "category": "text-presets",
+      "subcategory": "birthday-wishes",
+      "path": "text-presets/birthday-wishes/happy-birthday-001.png",
+      "thumbnailPath": "text-presets/birthday-wishes/thumbs/happy-birthday-001-thumb.png",
+      "type": "png",
+      "dimensions": {
+        "width": 1500,
+        "height": 400
+      },
+      "dpi": 300,
+      "colorSpace": "RGB",
+      "hasTransparency": true,
+      "tags": ["text", "happy-birthday", "birthday", "wishes"]
+    },
+    {
+      "id": "text-preset-love-you-001",
+      "name": "Love You Text Preset",
+      "category": "text-presets",
+      "subcategory": "love-quotes",
+      "path": "text-presets/love-quotes/love-you-001.png",
+      "thumbnailPath": "text-presets/love-quotes/thumbs/love-you-001-thumb.png",
+      "type": "png",
+      "dimensions": {
+        "width": 1200,
+        "height": 400
+      },
+      "dpi": 300,
+      "colorSpace": "RGB",
+      "hasTransparency": true,
+      "tags": ["text", "love", "romantic", "quotes"]
+    }
+  ]
+}
