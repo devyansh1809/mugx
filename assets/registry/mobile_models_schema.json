@@ -1,0 +1,351 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://mugx.app/schemas/mobile_models_schema.json",
+  "title": "Mobile Phone Models Schema",
+  "description": "Schema for mobile phone model database with precise dimensions for cover printing",
+  "type": "object",
+  "required": ["version", "generated", "models"],
+  "properties": {
+    "version": {
+      "type": "string",
+      "description": "Schema version (e.g., '1.0')",
+      "example": "1.0"
+    },
+    "generated": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp when registry was generated"
+    },
+    "models": {
+      "type": "array",
+      "description": "Array of mobile phone model entries",
+      "items": {
+        "$ref": "#/definitions/model"
+      }
+    }
+  },
+  "definitions": {
+    "model": {
+      "type": "object",
+      "required": [
+        "id",
+        "brand",
+        "modelName",
+        "printArea",
+        "canvasSize",
+        "dpi",
+        "bleed",
+        "safeArea",
+        "cameraCutout",
+        "psdTemplatePath",
+        "mockupPath"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique model identifier (e.g., 'iphone-15-pro')",
+          "pattern": "^[a-z0-9-]+$",
+          "example": "iphone-15-pro"
+        },
+        "brand": {
+          "type": "string",
+          "description": "Phone brand/manufacturer",
+          "enum": ["Apple", "Samsung", "OnePlus", "Xiaomi", "Google", "Oppo", "Vivo", "Realme", "Nothing"],
+          "example": "Apple"
+        },
+        "modelName": {
+          "type": "string",
+          "description": "Full model name",
+          "example": "iPhone 15 Pro"
+        },
+        "modelCode": {
+          "type": "string",
+          "description": "Manufacturer model code",
+          "example": "A2848"
+        },
+        "releaseYear": {
+          "type": "integer",
+          "description": "Year of release",
+          "minimum": 2010,
+          "maximum": 2030,
+          "example": 2023
+        },
+        "screenSize": {
+          "type": "number",
+          "description": "Screen size in inches",
+          "example": 6.1
+        },
+        "printArea": {
+          "type": "object",
+          "description": "Printable area specifications",
+          "required": ["width", "height", "unit"],
+          "properties": {
+            "width": {
+              "type": "number",
+              "description": "Printable width",
+              "example": 71
+            },
+            "height": {
+              "type": "number",
+              "description": "Printable height",
+              "example": 147
+            },
+            "wrapType": {
+              "type": "string",
+              "description": "Wrap type",
+              "enum": ["back-only", "back-sides", "full-wrap"],
+              "example": "back-only"
+            },
+            "unit": {
+              "type": "string",
+              "description": "Unit of measurement",
+              "enum": ["mm", "cm", "in"],
+              "example": "mm"
+            }
+          }
+        },
+        "canvasSize": {
+          "type": "object",
+          "description": "Photoshop canvas size in pixels",
+          "required": ["width", "height"],
+          "properties": {
+            "width": {
+              "type": "integer",
+              "description": "Canvas width in pixels",
+              "example": 840
+            },
+            "height": {
+              "type": "integer",
+              "description": "Canvas height in pixels",
+              "example": 1734
+            }
+          }
+        },
+        "dpi": {
+          "type": "integer",
+          "description": "Required resolution in DPI",
+          "minimum": 150,
+          "maximum": 600,
+          "default": 300,
+          "example": 300
+        },
+        "bleed": {
+          "type": "object",
+          "description": "Bleed area specifications",
+          "required": ["top", "right", "bottom", "left"],
+          "properties": {
+            "top": {
+              "type": "number",
+              "description": "Top bleed in mm",
+              "example": 2
+            },
+            "right": {
+              "type": "number",
+              "description": "Right bleed in mm",
+              "example": 2
+            },
+            "bottom": {
+              "type": "number",
+              "description": "Bottom bleed in mm",
+              "example": 2
+            },
+            "left": {
+              "type": "number",
+              "description": "Left bleed in mm",
+              "example": 2
+            },
+            "unit": {
+              "type": "string",
+              "description": "Unit of measurement",
+              "enum": ["mm", "cm", "in", "px"],
+              "example": "mm"
+            }
+          }
+        },
+        "safeArea": {
+          "type": "object",
+          "description": "Safe area margins",
+          "required": ["top", "right", "bottom", "left"],
+          "properties": {
+            "top": {
+              "type": "number",
+              "description": "Top safe margin in mm (camera area)",
+              "example": 15
+            },
+            "right": {
+              "type": "number",
+              "description": "Right safe margin in mm",
+              "example": 3
+            },
+            "bottom": {
+              "type": "number",
+              "description": "Bottom safe margin in mm",
+              "example": 5
+            },
+            "left": {
+              "type": "number",
+              "description": "Left safe margin in mm",
+              "example": 3
+            },
+            "unit": {
+              "type": "string",
+              "description": "Unit of measurement",
+              "enum": ["mm", "cm", "in", "px"],
+              "example": "mm"
+            }
+          }
+        },
+        "cameraCutout": {
+          "type": "object",
+          "description": "Camera cutout specifications",
+          "properties": {
+            "position": {
+              "type": "string",
+              "description": "Camera position",
+              "enum": ["top-left", "top-center", "top-right", "punch-hole"],
+              "example": "top-left"
+            },
+            "shape": {
+              "type": "string",
+              "description": "Camera shape",
+              "enum": ["circle", "pill", "square", "rectangle"],
+              "example": "pill"
+            },
+            "diameter": {
+              "type": "number",
+              "description": "Camera diameter or width in mm",
+              "example": 12
+            },
+            "offsetX": {
+              "type": "number",
+              "description": "Horizontal offset from edge in mm",
+              "example": 10
+            },
+            "offsetY": {
+              "type": "number",
+              "description": "Vertical offset from top in mm",
+              "example": 8
+            }
+          }
+        },
+        "buttonCutouts": {
+          "type": "array",
+          "description": "Button cutout specifications",
+          "items": {
+            "type": "object",
+            "properties": {
+              "side": {
+                "type": "string",
+                "enum": ["left", "right", "bottom"],
+                "example": "right"
+              },
+              "type": {
+                "type": "string",
+                "enum": ["power", "volume", "mute", "usb-c"],
+                "example": "power"
+              },
+              "offsetY": {
+                "type": "number",
+                "description": "Vertical offset from top in mm",
+                "example": 45
+              },
+              "width": {
+                "type": "number",
+                "description": "Button width in mm",
+                "example": 8
+              },
+              "height": {
+                "type": "number",
+                "description": "Button height in mm",
+                "example": 3
+              }
+            }
+          }
+        },
+        "psdTemplatePath": {
+          "type": "string",
+          "description": "Relative path to PSD template file",
+          "example": "templates/mobile/iphone-15-pro/iphone-15-pro-template.psd"
+        },
+        "mockupPath": {
+          "type": "string",
+          "description": "Relative path to mockup image",
+          "example": "mockups/mobile/iphone-15-pro-mockup.jpg"
+        },
+        "mockupAngles": {
+          "type": "array",
+          "description": "Multiple mockup angles",
+          "items": {
+            "type": "object",
+            "required": ["angle", "path"],
+            "properties": {
+              "angle": {
+                "type": "string",
+                "example": "front"
+              },
+              "path": {
+                "type": "string",
+                "example": "mockups/mobile/iphone-15-pro-front.jpg"
+              }
+            }
+          }
+        },
+        "caseType": {
+          "type": "string",
+          "description": "Case type",
+          "enum": ["hard-case", "soft-case", "silicone", "leather", "clear"],
+          "example": "hard-case"
+        },
+        "finishOptions": {
+          "type": "array",
+          "description": "Available finish options",
+          "items": {
+            "type": "string",
+            "enum": ["matte", "glossy", "satin", "textured"]
+          },
+          "example": ["matte", "glossy"]
+        },
+        "colorOptions": {
+          "type": "array",
+          "description": "Base case color options",
+          "items": {
+            "type": "string"
+          },
+          "example": ["white", "black", "clear"]
+        },
+        "printMirrorRule": {
+          "type": "boolean",
+          "description": "Whether design must be mirrored (for certain case types)",
+          "default": false
+        },
+        "isActive": {
+          "type": "boolean",
+          "description": "Whether model is currently available",
+          "default": true
+        },
+        "isPopular": {
+          "type": "boolean",
+          "description": "Whether model is popular/high-demand",
+          "default": false
+        },
+        "basePrice": {
+          "type": "number",
+          "description": "Base price in local currency",
+          "example": 499
+        },
+        "tags": {
+          "type": "array",
+          "description": "Search tags",
+          "items": {
+            "type": "string"
+          },
+          "example": ["iphone", "apple", "2023", "pro", "6.1-inch"]
+        },
+        "notes": {
+          "type": "string",
+          "description": "Additional notes"
+        }
+      }
+    }
+  }
+}

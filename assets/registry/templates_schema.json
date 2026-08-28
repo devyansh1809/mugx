@@ -1,0 +1,194 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://mugx.app/schemas/templates_schema.json",
+  "title": "Template Registry Schema",
+  "description": "Schema for template registry JSON file that indexes all PSD templates in the asset directory",
+  "type": "object",
+  "required": ["version", "generated", "templates"],
+  "properties": {
+    "version": {
+      "type": "string",
+      "description": "Schema version (e.g., '1.0')",
+      "example": "1.0"
+    },
+    "generated": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp when registry was generated"
+    },
+    "templates": {
+      "type": "array",
+      "description": "Array of template entries",
+      "items": {
+        "$ref": "#/definitions/template"
+      }
+    }
+  },
+  "definitions": {
+    "template": {
+      "type": "object",
+      "required": [
+        "id",
+        "name",
+        "productCategory",
+        "frameCount",
+        "path",
+        "thumbnailPath",
+        "dimensions",
+        "layerNamingContract"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique template identifier (e.g., 'mug-1photo-birthday-001')",
+          "pattern": "^[a-z0-9-]+$",
+          "example": "mug-1photo-birthday-001"
+        },
+        "name": {
+          "type": "string",
+          "description": "Human-readable template name",
+          "example": "Birthday Cake Mug - Single Photo"
+        },
+        "description": {
+          "type": "string",
+          "description": "Optional description of template"
+        },
+        "productCategory": {
+          "type": "string",
+          "description": "Product category (mugs, bottles, tshirts, cushions, tiles, keyrings, mobile)",
+          "enum": ["mugs", "bottles", "tshirts", "cushions", "tiles", "keyrings", "mobile"],
+          "example": "mugs"
+        },
+        "productSubcategory": {
+          "type": "string",
+          "description": "Product subcategory (e.g., '11oz', '15oz' for mugs)",
+          "example": "11oz"
+        },
+        "frameCount": {
+          "type": "integer",
+          "description": "Number of photo frames in template",
+          "minimum": 1,
+          "maximum": 10,
+          "example": 1
+        },
+        "path": {
+          "type": "string",
+          "description": "Relative path to PSD file from SubliStudioAssets root",
+          "example": "templates/mugs/1-photo/birthday-cake-mug.psd"
+        },
+        "thumbnailPath": {
+          "type": "string",
+          "description": "Relative path to thumbnail preview image",
+          "example": "templates/mugs/1-photo/thumbs/birthday-cake-mug-thumb.jpg"
+        },
+        "dimensions": {
+          "type": "object",
+          "description": "Template canvas dimensions",
+          "required": ["width", "height", "unit"],
+          "properties": {
+            "width": {
+              "type": "number",
+              "description": "Canvas width",
+              "example": 2100
+            },
+            "height": {
+              "type": "number",
+              "description": "Canvas height",
+              "example": 1200
+            },
+            "unit": {
+              "type": "string",
+              "description": "Unit of measurement",
+              "enum": ["px", "in", "cm", "mm"],
+              "example": "px"
+            }
+          }
+        },
+        "dpi": {
+          "type": "integer",
+          "description": "Resolution in dots per inch",
+          "minimum": 150,
+          "maximum": 600,
+          "example": 300
+        },
+        "colorMode": {
+          "type": "string",
+          "description": "Photoshop color mode",
+          "enum": ["RGB", "CMYK", "Grayscale", "Lab"],
+          "example": "RGB"
+        },
+        "layerNamingContract": {
+          "type": "object",
+          "description": "Expected layer names in PSD file",
+          "required": ["frames", "background"],
+          "properties": {
+            "frames": {
+              "type": "array",
+              "description": "Names of photo frame layers (smart objects)",
+              "items": {
+                "type": "string"
+              },
+              "example": ["frame_1", "frame_2"]
+            },
+            "background": {
+              "type": "string",
+              "description": "Name of background layer",
+              "example": "background"
+            },
+            "overlays": {
+              "type": "array",
+              "description": "Optional overlay layers",
+              "items": {
+                "type": "string"
+              },
+              "example": ["overlay_text", "overlay_graphics"]
+            },
+            "safeArea": {
+              "type": "string",
+              "description": "Name of safe area guide layer",
+              "example": "safe_area_guide"
+            },
+            "bleedArea": {
+              "type": "string",
+              "description": "Name of bleed area guide layer",
+              "example": "bleed_area_guide"
+            }
+          }
+        },
+        "theme": {
+          "type": "string",
+          "description": "Theme/occasion category",
+          "example": "birthday"
+        },
+        "occasion": {
+          "type": "string",
+          "description": "Specific occasion (more granular than theme)",
+          "example": "kids-birthday"
+        },
+        "tags": {
+          "type": "array",
+          "description": "Search tags for template",
+          "items": {
+            "type": "string"
+          },
+          "example": ["birthday", "cake", "kids", "colorful"]
+        },
+        "isPremium": {
+          "type": "boolean",
+          "description": "Whether template is premium/paid",
+          "default": false
+        },
+        "created": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Template creation timestamp"
+        },
+        "updated": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Template last modified timestamp"
+        }
+      }
+    }
+  }
+}
