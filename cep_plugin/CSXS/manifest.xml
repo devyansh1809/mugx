@@ -1,22 +1,22 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<ExtensionManifest Version="7.0" ExtensionId="com.sublistudio.cep" Version="1.0.0" xmlns="http://www.adobe.com/CSXS/2015/ExtensionManifest">
+<ExtensionManifest Version="11.0" ExtensionId="com.mugx.panel" Version="1.0.0" xmlns="http://www.adobe.com/CSXS/2015/ExtensionManifest">
   <ExtensionList>
-    <Extension Id="com.sublistudio.cep" Version="1.0.0" />
+    <Extension Id="com.mugx.panel" Version="1.0.0" />
   </ExtensionList>
   <ExecutionEnvironment>
     <HostList>
-      <Host Name="PHXS" Version="[13.0,99.9]" />
-      <Host Name="PHSP" Version="[13.0,99.9]" />
+      <Host Name="PHXS" Version="[20.0,99.9]" />
+      <Host Name="PHSP" Version="[20.0,99.9]" />
     </HostList>
     <LocaleList>
       <Locale Code="All" />
     </LocaleList>
     <RequiredRuntimeList>
-      <RequiredRuntime Name="CSXS" Version="7.0" />
+      <RequiredRuntime Name="CSXS" Version="11.0" />
     </RequiredRuntimeList>
   </ExecutionEnvironment>
   <DispatchInfoList>
-    <Extension Id="com.sublistudio.cep">
+    <Extension Id="com.mugx.panel">
       <DispatchInfo>
         <Resources>
           <MainPath>./index.html</MainPath>
@@ -29,9 +29,9 @@
             <Event>com.adobe.csxs.events.ApplicationInitialized</Event>
           </StartOn>
           <Menu>
-            <MenuText>SubliStudio CEP</MenuText>
+            <MenuText>MugX</MenuText>
             <ContextMenu>
-              <MenuText>SubliStudio CEP</MenuText>
+              <MenuText>MugX</MenuText>
             </ContextMenu>
           </Menu>
         </Resources>
@@ -40,7 +40,7 @@
         </Lifecycle>
         <UI>
           <Type>Panel</Type>
-          <Menu>SubliStudio CEP</Menu>
+          <Menu>MugX</Menu>
           <Geometry>
             <Size>
               <Height>600</Height>
