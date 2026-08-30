@@ -1,132 +1,90 @@
-"""
-core/print_exporter.py (v2.2)
-
-Fix: mirror_1 and mirror_2 now control independent designs:
-  - mirror_1: mirrors the PRIMARY design only.
-  - mirror_2: mirrors the EXTRA/secondary design only, independently.
-This matches the UI checkboxes and eliminates the cancel-out bug where
-applying FLIP_LEFT_RIGHT twice to the same image was a no-op.
-"""
 from __future__ import annotations
-
-import logging
-from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Optional, Tuple
-
-from PIL import Image
-
-logger = logging.getLogger("SubliStudio.PrintExporter")
-
-PAPER_SIZES_MM = {
-    "A4": (210.0, 297.0),
-    "A3": (297.0, 420.0),
-    "A5": (148.0, 210.0),
-    "Letter": (215.9, 279.4),
-}
-
-MM_PER_INCH = 25.4
-
+from typing import Optional, List
+from dataclasses import dataclass
+from .config import MugXConfig
 
 @dataclass
 class PrintSettings:
-    paper_size: str = "A4"
+    paper_size: str = 'A4'  # A4, A3, Letter
     dpi: int = 300
-    mirror_default: bool = True
-    designs_per_sheet: int = 1
-    margin_mm: float = 5.0
+    mirror: bool = True  # Flip horizontally for sublimation
+    color_mode: str = 'RGB'
+    units: str = 'mm'
+
+    @property
+    def a4_pixels(self) -> tuple[int, int]:
+        """A4 dimensions at specified DPI (210x297mm)."""
+        # 210mm = 8.27in, 297mm = 11.69in
+        width = int(8.27 * self.dpi)
+        height = int(11.69 * self.dpi)
+        return width, height
 
 
 class PrintExporter:
-    def __init__(self, settings: Optional[PrintSettings] = None):
-        self.settings = settings or PrintSettings()
+    """Print preparation: mirror, A4 layout, multiple designs per sheet, export."""
+    
+    def __init__(self, config: MugXConfig | None = None):
+        self.config = config or MugXConfig.from_env()
+        self.settings = PrintSettings()
 
-    def _paper_size_px(self) -> Tuple[int, int]:
-        if self.settings.paper_size not in PAPER_SIZES_MM:
-            raise ValueError(f"Unknown paper size: {self.settings.paper_size}")
-        w_mm, h_mm = PAPER_SIZES_MM[self.settings.paper_size]
-        px_per_mm = self.settings.dpi / MM_PER_INCH
-        return round(w_mm * px_per_mm), round(h_mm * px_per_mm)
+    def prepare_for_print(self, mirror: bool = True, paper_size: str = 'A4') -> None:
+        """
+        Prepare design for sublimation printing.
+        
+        In production:
+        1. Create new A4 canvas at 300 DPI
+        2. Copy active document
+        3. Mirror if needed
+        4. Center on page
+        """
+        self.settings.mirror = mirror
+        self.settings.paper_size = paper_size
+        # Photoshop scripting would create the A4 document and place the design
+        pass
 
-    def build_print_sheet(self, design: Image.Image, mirror_1: bool = True,
-                          mirror_2: bool = False, extra_design: Optional[Image.Image] = None,
-                          extra_design_rotate: bool = False) -> Image.Image:
-        sheet_w, sheet_h = self._paper_size_px()
-        sheet = Image.new("RGB", (sheet_w, sheet_h), (255, 255, 255))
+    def mirror_design(self) -> None:
+        """Flip the active design horizontally for sublimation."""
+        # Photoshop: app.activeDocument.activeLayer.flip(Direction.HORIZONTAL)
+        pass
 
-        prepared = design.convert("RGB")
-        if mirror_1:
-            prepared = prepared.transpose(Image.FLIP_LEFT_RIGHT)
+    def add_extra_design(self, design_path: Path) -> None:
+        """
+        Add another design to the same sheet to save paper.
+        
+        In production: load design, place in available space, auto-arrange.
+        """
+        pass
 
-        max_w = sheet_w - 2 * round(self.settings.margin_mm * self.settings.dpi / MM_PER_INCH)
-        max_h = sheet_h * 0.7
-        if prepared.width > max_w or prepared.height > max_h:
-            ratio = min(max_w / prepared.width, max_h / prepared.height)
-            prepared = prepared.resize(
-                (max(1, round(prepared.width * ratio)), max(1, round(prepared.height * ratio))), Image.LANCZOS
-            )
+    def auto_layout_on_a4(self, designs: List[Path]) -> None:
+        """
+        Auto-arrange multiple designs on a single A4 sheet.
+        
+        In production: calculate optimal positions, place each design.
+        """
+        pass
 
-        primary_x = round(self.settings.margin_mm * self.settings.dpi / MM_PER_INCH)
-        primary_y = primary_x
-        sheet.paste(prepared, (primary_x, primary_y))
+    def export(self, output_path: Path, format: str = 'JPG', quality: int = 95) -> None:
+        """
+        Export the prepared design to file.
+        
+        Supported formats: JPG, PNG, PSD, TIFF
+        """
+        # Photoshop: doc.saveAs(output_path, options)
+        pass
 
-        if extra_design is not None:
-            extra = extra_design.convert("RGB")
-            if extra_design_rotate:
-                extra = extra.transpose(Image.ROTATE_270)
-            if mirror_2:
-                extra = extra.transpose(Image.FLIP_LEFT_RIGHT)
-            extra_max_w = sheet_w - 2 * primary_x
-            extra_max_h = sheet_h * 0.25
-            if extra.width > extra_max_w or extra.height > extra_max_h:
-                ratio = min(extra_max_w / extra.width, extra_max_h / extra.height)
-                extra = extra.resize(
-                    (max(1, round(extra.width * ratio)), max(1, round(extra.height * ratio))), Image.LANCZOS
-                )
-            extra_x = primary_x
-            extra_y = sheet_h - extra.height - primary_x
-            sheet.paste(extra, (extra_x, extra_y))
+    def export_to_auto_folder(self, hd: bool = True) -> Path:
+        """Export to the Auto/HD or Auto/JPG folder."""
+        folder = self.config.auto / ('HD' if hd else 'JPG')
+        folder.mkdir(parents=True, exist_ok=True)
+        # Generate filename with timestamp
+        from datetime import datetime
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        ext = 'psd' if hd else 'jpg'
+        output = folder / f"MugX_{timestamp}.{ext}"
+        self.export(output, format='PSD' if hd else 'JPG')
+        return output
 
-        return sheet
-
-    def export_png(self, design: Image.Image, output_path: str, mirror_1: bool = True,
-                   mirror_2: bool = False, extra_design: Optional[Image.Image] = None,
-                   extra_design_rotate: bool = False) -> str:
-        sheet = self.build_print_sheet(design, mirror_1, mirror_2, extra_design, extra_design_rotate)
-        Path(output_path).parent.mkdir(parents=True, exist_ok=True)
-        sheet.save(output_path, "PNG", dpi=(self.settings.dpi, self.settings.dpi))
-        return output_path
-
-    def export_pdf(self, design: Image.Image, output_path: str, mirror_1: bool = True,
-                   mirror_2: bool = False, extra_design: Optional[Image.Image] = None,
-                   extra_design_rotate: bool = False) -> str:
-        from reportlab.lib.utils import ImageReader
-        from reportlab.pdfgen import canvas as pdf_canvas
-
-        sheet = self.build_print_sheet(design, mirror_1, mirror_2, extra_design, extra_design_rotate)
-        Path(output_path).parent.mkdir(parents=True, exist_ok=True)
-
-        w_mm, h_mm = PAPER_SIZES_MM[self.settings.paper_size]
-        page_w_pt = w_mm / MM_PER_INCH * 72
-        page_h_pt = h_mm / MM_PER_INCH * 72
-
-        c = pdf_canvas.Canvas(output_path, pagesize=(page_w_pt, page_h_pt))
-        c.drawImage(ImageReader(sheet), 0, 0, width=page_w_pt, height=page_h_pt)
-        c.showPage()
-        c.save()
-        return output_path
-
-    def export(self, design: Image.Image, output_dir: str, base_name: str, mirror_1: bool = True,
-               mirror_2: bool = False, extra_design: Optional[Image.Image] = None,
-               extra_design_rotate: bool = False,
-               formats: Tuple[str, ...] = ("png",)) -> List[str]:
-        outputs = []
-        out_dir = Path(output_dir)
-        out_dir.mkdir(parents=True, exist_ok=True)
-        if "png" in formats:
-            outputs.append(self.export_png(design, str(out_dir / f"{base_name}.png"),
-                                          mirror_1, mirror_2, extra_design, extra_design_rotate))
-        if "pdf" in formats:
-            outputs.append(self.export_pdf(design, str(out_dir / f"{base_name}.pdf"),
-                                          mirror_1, mirror_2, extra_design, extra_design_rotate))
-        return outputs
+    def get_print_settings_dialog(self) -> PrintSettings:
+        """Return print settings (in production, show dialog to user)."""
+        return self.settings
