@@ -1,122 +1,85 @@
-"""
-core/photo_import_service.py (v2.2)
-
-Fixes:
-- Restored .gif support in SUPPORTED_EXTENSIONS (dropped in v2 rewrite).
-- Added optional HEIC/HEIF support via pillow-heif (lazy import,
-  graceful fallback -- same pattern as cv2 in image_processor.py).
-"""
 from __future__ import annotations
-
-import hashlib
-import logging
-import os
-import json
+import shutil
 from pathlib import Path
-from typing import List, Optional, Dict
-
-from PIL import Image
-
-from core.models import PhotoItem
-
-logger = logging.getLogger("SubliStudio.PhotoImportService")
-
-try:
-    import pillow_heif
-    pillow_heif.register_heif_opener()
-    _HAS_HEIF = True
-except Exception:
-    _HAS_HEIF = False
-
-SUPPORTED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".tif", ".tiff", ".bmp", ".webp", ".gif"}
-HEIF_EXTENSIONS = {".heic", ".heif"}
-
-THUMB_SIZE = (96, 96)
-LAST_FOLDER_PATH = Path.home() / ".subli_studio" / "last_folder.json"
-
+from typing import List
+from .config import MugXConfig
 
 class PhotoImportService:
-    def __init__(self, thumbnail_cache_dir: str):
-        self.thumbnail_cache_dir = Path(thumbnail_cache_dir)
-        self.thumbnail_cache_dir.mkdir(parents=True, exist_ok=True)
-        if not _HAS_HEIF:
-            logger.info(
-                "pillow-heif not installed -- .heic/.heif photos will be skipped. "
-                "Install with: pip install pillow-heif"
-            )
+    def __init__(self, config: MugXConfig | None = None):
+        self.config = config or MugXConfig.from_env()
+        self.photo_folder = self.config.customer_photo
+        self.mobile_folder = self.config.mobile_photo
 
-    def get_last_folder(self) -> Optional[str]:
-        if LAST_FOLDER_PATH.exists():
-            try:
-                return json.loads(LAST_FOLDER_PATH.read_text()).get("last_folder")
-            except Exception:
-                pass
-        return None
-
-    def save_last_folder(self, folder: str):
-        LAST_FOLDER_PATH.parent.mkdir(parents=True, exist_ok=True)
-        LAST_FOLDER_PATH.write_text(json.dumps({"last_folder": folder}))
-
-    def _supported_extensions(self) -> set:
-        exts = set(SUPPORTED_EXTENSIONS)
-        if _HAS_HEIF:
-            exts |= HEIF_EXTENSIONS
-        return exts
-
-    def scan_folder(self, folder: str, name_overrides: Optional[Dict[int, str]] = None) -> List[PhotoItem]:
-        folder_path = Path(folder)
-        if not folder_path.is_dir():
-            logger.warning("scan_folder: %s is not a directory", folder)
-            return []
-
-        supported = self._supported_extensions()
-        skipped_heif = 0
-        candidates = []
-        for p in sorted(folder_path.iterdir()):
-            if not p.is_file():
-                continue
-            suffix = p.suffix.lower()
-            if suffix in supported:
-                candidates.append(p)
-            elif suffix in HEIF_EXTENSIONS and not _HAS_HEIF:
-                skipped_heif += 1
-
-        if skipped_heif:
-            logger.warning(
-                "Skipped %d .heic/.heif file(s) -- install pillow-heif to support them.",
-                skipped_heif,
-            )
-
-        photos: List[PhotoItem] = []
-        for idx, path in enumerate(candidates, start=1):
-            seq_name = name_overrides.get(idx - 1, f"{idx:02d}") if name_overrides else f"{idx:02d}"
-            photos.append(
-                PhotoItem(original_path=str(path), sequence_name=seq_name, index=idx - 1)
-            )
-
-        logger.info("scan_folder: found %d photo(s) in %s", len(photos), folder)
+    def get_sequential_photos(self, count: int, mobile: bool = False) -> List[Path]:
+        """Load photos 01, 02, 03... up to count from the appropriate folder."""
+        folder = self.mobile_folder if mobile else self.photo_folder
+        photos = []
+        for i in range(1, count + 1):
+            for ext in ('.jpg', '.jpeg', '.png', '.JPG', '.JPEG', '.PNG'):
+                photo_path = folder / f"{i:02d}{ext}"
+                if photo_path.exists():
+                    photos.append(photo_path)
+                    break
         return photos
 
-    def _cache_key(self, photo: PhotoItem) -> str:
-        try:
-            stat = os.stat(photo.original_path)
-            fingerprint = f"{photo.original_path}|{stat.st_mtime}|{stat.st_size}|{THUMB_SIZE}"
-        except OSError:
-            fingerprint = f"{photo.original_path}|{THUMB_SIZE}"
-        return hashlib.sha1(fingerprint.encode("utf-8")).hexdigest()
+    def get_all_photos(self, mobile: bool = False) -> List[Path]:
+        """Get all photos in sequential order from the folder."""
+        folder = self.mobile_folder if mobile else self.photo_folder
+        if not folder.exists():
+            return []
+        photos = []
+        for ext in ('*.jpg', '*.jpeg', '*.png', '*.JPG', '*.JPEG', '*.PNG'):
+            photos.extend(folder.glob(ext))
+        # Sort numerically by filename stem
+        def sort_key(p: Path):
+            try:
+                return int(p.stem)
+            except ValueError:
+                return float('inf')
+        return sorted(photos, key=sort_key)
 
-    def get_thumbnail(self, photo: PhotoItem) -> Optional[str]:
-        cache_path = self.thumbnail_cache_dir / f"{self._cache_key(photo)}.png"
-        if cache_path.exists():
-            return str(cache_path)
-        try:
-            with Image.open(photo.original_path) as img:
-                if getattr(img, "is_animated", False):
-                    img.seek(0)
-                img = img.convert("RGB")
-                img.thumbnail(THUMB_SIZE)
-                img.save(cache_path, "PNG")
-            return str(cache_path)
-        except Exception:
-            logger.exception("Failed to build thumbnail for %s", photo.original_path)
-            return None
+    def auto_rename_photos(self, photo_paths: List[Path], mobile: bool = False) -> None:
+        """Rename photos to 01, 02, 03... sequentially."""
+        folder = self.mobile_folder if mobile else self.photo_folder
+        # First pass: rename to temp names to avoid collisions
+        temp_map = {}
+        for idx, photo_path in enumerate(photo_paths, start=1):
+            if photo_path.exists():
+                temp_name = f"_temp_{idx}{photo_path.suffix}"
+                temp_path = folder / temp_name
+                photo_path.rename(temp_path)
+                temp_map[idx] = temp_path
+        # Second pass: rename to final sequential names
+        for idx, temp_path in temp_map.items():
+            new_name = f"{idx:02d}{temp_path.suffix}"
+            new_path = folder / new_name
+            temp_path.rename(new_path)
+
+    def import_photos(self, source_paths: List[Path], mobile: bool = False) -> List[Path]:
+        """Import photos from source paths, auto-rename sequentially, return new paths."""
+        folder = self.mobile_folder if mobile else self.photo_folder
+        folder.mkdir(parents=True, exist_ok=True)
+        imported = []
+        for src in source_paths:
+            if src.exists():
+                dst = folder / src.name
+                shutil.copy2(src, dst)
+                imported.append(dst)
+        if imported:
+            self.auto_rename_photos(self.get_all_photos(mobile=mobile), mobile=mobile)
+        return self.get_all_photos(mobile=mobile)
+
+    def remove_photo(self, photo_path: Path, mobile: bool = False) -> None:
+        """Remove a photo and renumber remaining sequentially."""
+        if photo_path.exists():
+            photo_path.unlink()
+        remaining = self.get_all_photos(mobile=mobile)
+        if remaining:
+            self.auto_rename_photos(remaining, mobile=mobile)
+
+    def renumber_all(self, mobile: bool = False) -> List[Path]:
+        """Renumber all photos in folder sequentially."""
+        photos = self.get_all_photos(mobile=mobile)
+        if photos:
+            self.auto_rename_photos(photos, mobile=mobile)
+        return self.get_all_photos(mobile=mobile)

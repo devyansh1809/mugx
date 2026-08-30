@@ -15,8 +15,6 @@ import os
 from pathlib import Path
 from typing import Dict, List, Optional, Any
 from datetime import datetime
-import jsonschema
-from jsonschema import validate, ValidationError
 
 
 class AssetRegistryLoader:
@@ -64,7 +62,19 @@ class AssetRegistryLoader:
         try:
             with open(file_path, 'r', encoding='utf-8') as f:
                 data = json.load(f)
-            print(f"✅ Loaded: {file_path.name} ({len(data.get('templates', data.get('products', data.get('assets', data.get('models', []))))} entries)")
+            
+            # Count entries
+            entry_count = 0
+            if 'templates' in data:
+                entry_count = len(data['templates'])
+            elif 'products' in data:
+                entry_count = len(data['products'])
+            elif 'assets' in data:
+                entry_count = len(data['assets'])
+            elif 'models' in data:
+                entry_count = len(data['models'])
+            
+            print(f"✅ Loaded: {file_path.name} ({entry_count} entries)")
             return data
         except json.JSONDecodeError as e:
             print(f"❌ JSON parse error in {file_path}: {e}")
@@ -136,23 +146,16 @@ class AssetRegistryLoader:
         
         results = []
         for template in all_templates:
-            # Search in name
             if query_lower in template.get('name', '').lower():
                 results.append(template)
                 continue
-            
-            # Search in description
             if query_lower in template.get('description', '').lower():
                 results.append(template)
                 continue
-            
-            # Search in tags
             tags = template.get('tags', [])
             if any(query_lower in tag.lower() for tag in tags):
                 results.append(template)
                 continue
-            
-            # Search in theme/occasion
             if query_lower in template.get('theme', '').lower():
                 results.append(template)
                 continue
@@ -203,23 +206,16 @@ class AssetRegistryLoader:
         
         results = []
         for product in all_products:
-            # Search in name
             if query_lower in product.get('name', '').lower():
                 results.append(product)
                 continue
-            
-            # Search in description
             if query_lower in product.get('description', '').lower():
                 results.append(product)
                 continue
-            
-            # Search in tags
             tags = product.get('tags', [])
             if any(query_lower in tag.lower() for tag in tags):
                 results.append(product)
                 continue
-            
-            # Search in category/subcategory
             if query_lower in product.get('category', '').lower():
                 results.append(product)
                 continue
@@ -254,23 +250,16 @@ class AssetRegistryLoader:
         
         results = []
         for asset in all_assets:
-            # Search in name
             if query_lower in asset.get('name', '').lower():
                 results.append(asset)
                 continue
-            
-            # Search in description
             if query_lower in asset.get('description', '').lower():
                 results.append(asset)
                 continue
-            
-            # Search in tags
             tags = asset.get('tags', [])
             if any(query_lower in tag.lower() for tag in tags):
                 results.append(asset)
                 continue
-            
-            # Search in theme/occasion
             if query_lower in asset.get('theme', '').lower():
                 results.append(asset)
                 continue
@@ -326,17 +315,12 @@ class AssetRegistryLoader:
         
         results = []
         for model in all_models:
-            # Search in model name
             if query_lower in model.get('modelName', '').lower():
                 results.append(model)
                 continue
-            
-            # Search in brand
             if query_lower in model.get('brand', '').lower():
                 results.append(model)
                 continue
-            
-            # Search in tags
             tags = model.get('tags', [])
             if any(query_lower in tag.lower() for tag in tags):
                 results.append(model)
@@ -398,7 +382,6 @@ class AssetRegistryLoader:
             'registry'
         ]
         
-        # Check directories
         for dir_path in expected_dirs:
             full_path = self.assets_root / dir_path
             if full_path.exists() and full_path.is_dir():
@@ -410,7 +393,6 @@ class AssetRegistryLoader:
             else:
                 report['missing'].append(dir_path)
         
-        # Check registry files
         registry_files = [
             'templates.json',
             'product-profiles.json',
@@ -430,67 +412,6 @@ class AssetRegistryLoader:
                 report['missing'].append(f'registry/{file_name}')
         
         return report
-    
-    def generate_registry_from_scan(self, output_dir: Optional[Path] = None) -> Dict[str, str]:
-        """
-        Generate registry JSON files by scanning the asset directory.
-        
-        This is a helper for initial setup when registry files don't exist yet.
-        
-        Args:
-            output_dir: Output directory for generated JSON files (default: registry/)
-            
-        Returns:
-            Dictionary of generated file paths
-        """
-        if output_dir is None:
-            output_dir = self.registry_dir
-        
-        output_dir.mkdir(parents=True, exist_ok=True)
-        
-        generated = {}
-        timestamp = datetime.utcnow().isoformat() + 'Z'
-        
-        # Scan templates
-        templates = []
-        templates_dir = self.assets_root / 'templates'
-        if templates_dir.exists():
-            for product_category in templates_dir.iterdir():
-                if product_category.is_dir():
-                    for frame_folder in product_category.iterdir():
-                        if frame_folder.is_dir():
-                            for psd_file in frame_folder.glob('*.psd'):
-                                template = {
-                                    'id': f"{product_category.name}-{frame_folder.name}-{psd_file.stem}",
-                                    'name': psd_file.stem.replace('-', ' ').title(),
-                                    'productCategory': product_category.name,
-                                    'frameCount': self._extract_frame_count(frame_folder.name),
-                                    'path': str(psd_file.relative_to(self.assets_root)),
-                                    'dimensions': {'width': 2400, 'height': 1038, 'unit': 'px'},
-                                    'dpi': 300,
-                                    'layerNamingContract': {
-                                        'frames': [f'frame_{i+1}' for i in range(self._extract_frame_count(frame_folder.name))],
-                                        'background': 'background'
-                                    },
-                                    'created': timestamp,
-                                    'updated': timestamp
-                                }
-                                templates.append(template)
-        
-        templates_json = {
-            'version': '1.0',
-            'generated': timestamp,
-            'templates': templates
-        }
-        
-        templates_file = output_dir / 'templates.json'
-        with open(templates_file, 'w', encoding='utf-8') as f:
-            json.dump(templates_json, f, indent=2, ensure_ascii=False)
-        generated['templates'] = str(templates_file)
-        
-        print(f"✅ Generated: {templates_file} ({len(templates)} templates)")
-        
-        return generated
     
     def _extract_frame_count(self, folder_name: str) -> int:
         """Extract frame count from folder name (e.g., '2-photo' -> 2)."""
@@ -536,62 +457,48 @@ class AssetRegistryLoader:
             with open(schema_path, 'r', encoding='utf-8') as f:
                 schema = json.load(f)
             
+            from jsonschema import validate, ValidationError
             validate(instance=data, schema=schema)
             print(f"✅ Validated: {data_file.name} against {schema_file}")
             return True
             
-        except ValidationError as e:
-            print(f"❌ Validation error in {data_file.name}: {e.message}")
-            return False
+        except ImportError:
+            print(f"⚠️  jsonschema not installed. Run: pip3 install jsonschema")
+            return True
         except Exception as e:
-            print(f"❌ Error validating {data_file.name}: {e}")
+            print(f"❌ Validation error in {data_file.name}: {e}")
             return False
 
-
-# ============ USAGE EXAMPLE ============
 
 if __name__ == '__main__':
-    # Example usage
     assets_root = Path.home() / 'SubliStudioAssets'
-    
     loader = AssetRegistryLoader(assets_root)
-    
-    # Load all registries
     results = loader.load_all_registries()
     
-    # Get templates
     templates = loader.get_templates()
     print(f"\n📄 Found {len(templates)} templates")
     
-    # Get mug templates
     mug_templates = loader.get_templates_by_category('mugs')
     print(f"📄 Found {len(mug_templates)} mug templates")
     
-    # Get 2-photo mug templates
     mug_2photo = loader.get_templates_by_frame_count('mugs', 2)
     print(f"📄 Found {len(mug_2photo)} 2-photo mug templates")
     
-    # Search templates
     birthday_templates = loader.search_templates('birthday')
     print(f"📄 Found {len(birthday_templates)} birthday templates")
     
-    # Get products
     products = loader.get_products()
     print(f"\n🛍️  Found {len(products)} products")
     
-    # Get active products
     active_products = loader.get_active_products()
     print(f"🛍️  Found {len(active_products)} active products")
     
-    # Get assets
     assets = loader.get_assets()
     print(f"\n🎨 Found {len(assets)} assets")
     
-    # Get mobile models
     mobile_models = loader.get_mobile_models()
     print(f"\n📱 Found {len(mobile_models)} mobile models")
     
-    # Scan directory structure
     scan_report = loader.scan_directory_structure()
     print(f"\n📂 Directory scan:")
     print(f"   Assets root exists: {scan_report['exists']}")
