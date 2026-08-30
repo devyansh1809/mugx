@@ -151,20 +151,21 @@ function getLayerList() {
         function collectLayers(layerSet, parentIndex) {
             for (var i = 0; i < layerSet.layers.length; i++) {
                 var layer = layerSet.layers[i];
+                var isSet = (layer.typename === "LayerSet");
                 var layerInfo = {
                     index: i,
                     name: layer.name,
-                    kind: String(layer.typename === "LayerSet" ? "layerSet" : "artLayer"),
+                    kind: isSet ? "layerSet" : "artLayer",
                     visible: layer.visible,
                     opacity: layer.opacity,
-                    isBackgroundLayer: !!layer.isBackgroundLayer,
-                    locked: !!(layer.allLocked || layer.positionLocked),
+                    isBackgroundLayer: isSet ? false : !!layer.isBackgroundLayer,
+                    locked: isSet ? false : !!(layer.allLocked || layer.positionLocked),
                     parentIndex: parentIndex
                 };
 
                 layers.push(layerInfo);
 
-                if (layer.typename === "LayerSet") {
+                if (isSet) {
                     collectLayers(layer, i);
                 }
             }
@@ -296,3 +297,17 @@ function duplicateLayer(layerName) {
         };
     });
 }
+
+// ---------- Export all functions for CEP bridge ----------
+// THIS OBJECT MUST EXIST: the panel calls MugXBridge.<function>() via
+// evalScript. Without it, every call throws a ReferenceError before it
+// ever reaches a try/catch, which CEP reports simply as "EvalScript error."
+var MugXBridge = {
+    pingPhotoshop: pingPhotoshop,
+    getPhotoshopInfo: getPhotoshopInfo,
+    getDocumentInfo: getDocumentInfo,
+    getLayerList: getLayerList,
+    addTestLayer: addTestLayer,
+    getLayerBounds: getLayerBounds,
+    duplicateLayer: duplicateLayer
+};
