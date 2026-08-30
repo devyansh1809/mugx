@@ -1,48 +1,79 @@
-// MugX Photoshop Bridge - Phase 2A Stabilized
-// Returns safe JSON-compatible objects without JSON.stringify
+// MugX Photoshop Bridge - Phase 2A Stabilized (Fix: safe string-serialized JSON)
+// Every bridge function returns a JSON STRING (built with a custom encoder,
+// not JSON.stringify) so CSInterface.evalScript() can hand the panel a
+// parseable string instead of "[object Object]".
 // Compatible with Photoshop 27.9.1
 
 #target photoshop
 
-// Global error handler wrapper
+// ---------- Custom JSON encoder (no JSON.stringify) ----------
+function jsonEscape(str) {
+    str = String(str);
+    var out = "";
+    for (var i = 0; i < str.length; i++) {
+        var c = str.charAt(i);
+        var code = str.charCodeAt(i);
+        if (c === '"') { out += '\\"'; }
+        else if (c === '\\') { out += '\\\\'; }
+        else if (c === '\n') { out += '\\n'; }
+        else if (c === '\r') { out += '\\r'; }
+        else if (c === '\t') { out += '\\t'; }
+        else if (code < 0x20) { out += ''; }
+        else { out += c; }
+    }
+    return out;
+}
+
+function toJSON(value) {
+    if (value === null || value === undefined) {
+        return "null";
+    }
+    var t = typeof value;
+    if (t === "number") {
+        if (!isFinite(value)) return "null";
+        return String(value);
+    }
+    if (t === "boolean") {
+        return value ? "true" : "false";
+    }
+    if (t === "string") {
+        return '"' + jsonEscape(value) + '"';
+    }
+    if (value && value.constructor && value.constructor.name === "Array") {
+        var parts = [];
+        for (var i = 0; i < value.length; i++) {
+            parts.push(toJSON(value[i]));
+        }
+        return "[" + parts.join(",") + "]";
+    }
+    if (t === "object") {
+        var pairs = [];
+        for (var key in value) {
+            if (value.hasOwnProperty(key)) {
+                var v = value[key];
+                if (typeof v === "function") { continue; }
+                pairs.push('"' + jsonEscape(key) + '":' + toJSON(v));
+            }
+        }
+        return "{" + pairs.join(",") + "}";
+    }
+    return '"' + jsonEscape(String(value)) + '"';
+}
+
+// Global error handler wrapper - always returns a JSON STRING
 function safeExecute(fn) {
     try {
-        return fn();
+        var result = fn();
+        return toJSON(result);
     } catch (e) {
-        return {
+        return toJSON({
             _error: true,
+            success: false,
             name: e.name || "UnknownError",
             message: e.message || String(e),
             line: e.line || null
-        };
+        });
     }
-}
-
-// Convert Photoshop objects to plain JS objects ( ExtendScript compatible)
-function toPlainObject(obj) {
-    if (obj === null || obj === undefined) {
-        return null;
-    }
-    
-    var result = {};
-    for (var key in obj) {
-        if (obj.hasOwnProperty(key)) {
-            try {
-                var value = obj[key];
-                if (typeof value === "function") {
-                    continue;
-                } else if (typeof value === "object" && value !== null) {
-                    // Skip complex nested objects
-                    result[key] = String(value);
-                } else {
-                    result[key] = value;
-                }
-            } catch (e) {
-                result[key] = "<error>";
-            }
-        }
-    }
-    return result;
 }
 
 // 1. pingPhotoshop - Basic connectivity test
@@ -66,11 +97,11 @@ function getPhotoshopInfo() {
             name: app.name,
             version: app.version,
             build: app.build,
-            platform: app.platform,
-            language: app.language,
-            path: app.path,
-            preferencesFolder: app.preferencesFolder,
-            systemInformation: app.systemInformation
+            platform: String(app.platform),
+            language: String(app.language),
+            path: String(app.path),
+            preferencesFolder: String(app.preferencesFolder),
+            systemInformation: String(app.systemInformation)
         };
     });
 }
@@ -85,7 +116,7 @@ function getDocumentInfo() {
                 documentCount: 0
             };
         }
-        
+
         var doc = app.activeDocument;
         return {
             success: true,
@@ -93,9 +124,8 @@ function getDocumentInfo() {
             name: doc.name,
             width: doc.width.as("px"),
             height: doc.height.as("px"),
-            resolution: doc.resolution.as("pixels/inch"),
-            mode: doc.mode.toString(),
-            colorSpace: doc.mode,
+            resolution: doc.resolution,
+            mode: String(doc.mode),
             bitDepth: doc.bitsPerChannel,
             layerCount: doc.layers.length,
             activeLayer: doc.activeLayer ? doc.activeLayer.name : null,
@@ -114,35 +144,34 @@ function getLayerList() {
                 layers: []
             };
         }
-        
+
         var doc = app.activeDocument;
         var layers = [];
-        
+
         function collectLayers(layerSet, parentIndex) {
             for (var i = 0; i < layerSet.layers.length; i++) {
                 var layer = layerSet.layers[i];
                 var layerInfo = {
                     index: i,
                     name: layer.name,
-                    kind: layer.kind,
+                    kind: String(layer.typename === "LayerSet" ? "layerSet" : "artLayer"),
                     visible: layer.visible,
                     opacity: layer.opacity,
-                    isBackgroundLayer: layer.isBackgroundLayer,
-                    locked: layer.allLocked || layer.positionLocked,
+                    isBackgroundLayer: !!layer.isBackgroundLayer,
+                    locked: !!(layer.allLocked || layer.positionLocked),
                     parentIndex: parentIndex
                 };
-                
+
                 layers.push(layerInfo);
-                
-                // Handle layer sets (groups)
+
                 if (layer.typename === "LayerSet") {
                     collectLayers(layer, i);
                 }
             }
         }
-        
+
         collectLayers(doc, -1);
-        
+
         return {
             success: true,
             layerCount: layers.length,
@@ -160,11 +189,11 @@ function addTestLayer() {
                 error: "No open documents"
             };
         }
-        
+
         var doc = app.activeDocument;
         var testLayer = doc.artLayers.add();
         testLayer.name = "MugX Test Layer";
-        
+
         return {
             success: true,
             layerName: testLayer.name,
@@ -183,12 +212,11 @@ function getLayerBounds(layerName) {
                 error: "No open documents"
             };
         }
-        
+
         var doc = app.activeDocument;
         var targetLayer = null;
-        
+
         if (layerName) {
-            // Find layer by name
             for (var i = 0; i < doc.layers.length; i++) {
                 if (doc.layers[i].name === layerName) {
                     targetLayer = doc.layers[i];
@@ -196,29 +224,33 @@ function getLayerBounds(layerName) {
                 }
             }
         } else {
-            // Use active layer
             targetLayer = doc.activeLayer;
         }
-        
+
         if (!targetLayer) {
             return {
                 success: false,
                 error: "Layer not found: " + (layerName || "active layer")
             };
         }
-        
+
         var bounds = targetLayer.bounds;
+        var left = bounds[0].as("px");
+        var top = bounds[1].as("px");
+        var right = bounds[2].as("px");
+        var bottom = bounds[3].as("px");
+
         return {
             success: true,
             layerName: targetLayer.name,
             bounds: {
-                left: bounds[0].as("px"),
-                top: bounds[1].as("px"),
-                right: bounds[2].as("px"),
-                bottom: bounds[3].as("px")
+                left: left,
+                top: top,
+                right: right,
+                bottom: bottom
             },
-            width: bounds[2].as("px") - bounds[0].as("px"),
-            height: bounds[3].as("px") - bounds[1].as("px")
+            width: right - left,
+            height: bottom - top
         };
     });
 }
@@ -232,12 +264,11 @@ function duplicateLayer(layerName) {
                 error: "No open documents"
             };
         }
-        
+
         var doc = app.activeDocument;
         var targetLayer = null;
-        
+
         if (layerName) {
-            // Find layer by name
             for (var i = 0; i < doc.layers.length; i++) {
                 if (doc.layers[i].name === layerName) {
                     targetLayer = doc.layers[i];
@@ -245,19 +276,18 @@ function duplicateLayer(layerName) {
                 }
             }
         } else {
-            // Use active layer
             targetLayer = doc.activeLayer;
         }
-        
+
         if (!targetLayer) {
             return {
                 success: false,
                 error: "Layer not found: " + (layerName || "active layer")
             };
         }
-        
+
         var duplicated = targetLayer.duplicate();
-        
+
         return {
             success: true,
             originalLayer: targetLayer.name,
@@ -266,20 +296,3 @@ function duplicateLayer(layerName) {
         };
     });
 }
-
-// Export all functions for CEP bridge
-var MugXBridge = {
-    pingPhotoshop: pingPhotoshop,
-    getPhotoshopInfo: getPhotoshopInfo,
-    getDocumentInfo: getDocumentInfo,
-    getLayerList: getLayerList,
-    addTestLayer: addTestLayer,
-    getLayerBounds: getLayerBounds,
-    duplicateLayer: duplicateLayer
-};
-
-// IIFE wrapper for CEP evalScript compatibility
-(function() {
-    // Bridge is ready
-    return MugXBridge;
-})();
