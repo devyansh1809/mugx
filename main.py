@@ -1,47 +1,48 @@
-"""
-main.py -- SubliStudio v2 entry point.
-
-Run with:
-    python main.py
-"""
-
+from __future__ import annotations
 import sys
-import logging
 from pathlib import Path
-
-from PyQt6.QtWidgets import QApplication
-
-from ui.main_window import MainWindow
-
-APP_DATA_DIR = Path.home() / ".subli_studio"
-LOG_DIR = APP_DATA_DIR / "logs"
-
-
-def setup_logging():
-    LOG_DIR.mkdir(parents=True, exist_ok=True)
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-        handlers=[
-            logging.FileHandler(LOG_DIR / "subli_studio.log"),
-            logging.StreamHandler(),
-        ],
-    )
-
+from core.config import MugXConfig
+from core.folder_manager import FolderManager
+from core.photo_import_service import PhotoImportService
+from core.template_manager import TemplateManager
+from core.image_processor import AutoFillEngine, ImageProcessor
+from core.element_manager import ElementManager
+from core.print_exporter import PrintExporter
 
 def main():
-    setup_logging()
-    logger = logging.getLogger("SubliStudio.Main")
-    logger.info("Starting SubliStudio v2...")
+    """MugX Print Plugin - Main entry point."""
+    print("MugX Print Plugin Pro - Initializing...")
+    
+    # Initialize configuration and folders
+    config = MugXConfig.from_env()
+    folder_mgr = FolderManager(config)
+    folder_mgr.initialize()
+    print(f"Data root: {config.root}")
+    
+    # Initialize services
+    photo_service = PhotoImportService(config)
+    template_mgr = TemplateManager(config)
+    auto_fill = AutoFillEngine(config)
+    img_proc = ImageProcessor(config)
+    elem_mgr = ElementManager(config)
+    print_exp = PrintExporter(config)
+    
+    print("Services initialized:")
+    print(f"  - Photo folder: {config.customer_photo}")
+    print(f"  - Templates: {config.templates}")
+    print(f"  - Backgrounds: {config.backgrounds}")
+    print(f"  - PNG Data: {config.png_data}")
+    
+    # Demo: list available templates
+    templates = template_mgr.list_templates()
+    print(f"\nFound {len(templates)} templates.")
+    
+    # Demo: list available photos
+    photos = photo_service.get_all_photos()
+    print(f"Found {len(photos)} photos in {config.customer_photo}.")
+    
+    print("\nMugX ready. Use the Photoshop panel or UI to design.")
+    return 0
 
-    app = QApplication(sys.argv)
-    app.setApplicationName("SubliStudio")
-
-    window = MainWindow()
-    window.show()
-
-    sys.exit(app.exec())
-
-
-if __name__ == "__main__":
-    main()
+if __name__ == '__main__':
+    sys.exit(main())
