@@ -5,7 +5,6 @@
     </ExtensionList>
     <ExecutionEnvironment>
         <HostList>
-            <Host Name="PHXS" Version="27.9.1" />
             <Host Name="PHXS" Version="[27.0,28.0)" />
         </HostList>
         <LocaleList>
@@ -25,9 +24,6 @@
                         <Parameter>--enable-nodejs</Parameter>
                         <Parameter>--mixed-context</Parameter>
                     </CEFCommandLine>
-                    <StartOn>
-                        <Event>com.adobe.csxs.events.ApplicationInitialized</Event>
-                    </StartOn>
                 </Resources>
                 <Lifecycle>
                     <AutoVisible>true</AutoVisible>
